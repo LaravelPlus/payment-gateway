@@ -266,9 +266,16 @@ final class Plan extends Model
      */
     public function getFormattedPriceAttribute(): string
     {
-        $formatter = new NumberFormatter('en', NumberFormatter::CURRENCY);
+        if (class_exists(NumberFormatter::class)) {
+            $formatter = new NumberFormatter('en', NumberFormatter::CURRENCY);
 
-        return $formatter->formatCurrency($this->amount / 100, $this->currency);
+            return $formatter->formatCurrency($this->amount / 100, $this->currency);
+        }
+
+        $amount = number_format($this->amount / 100, 2);
+        $symbols = ['USD' => '$', 'EUR' => '€', 'GBP' => '£', 'JPY' => '¥'];
+
+        return ($symbols[strtoupper($this->currency)] ?? $this->currency.' ').$amount;
     }
 
     /**

@@ -127,9 +127,16 @@ final class Refund extends Model
      */
     public function getFormattedAmount(): string
     {
-        $formatter = new NumberFormatter('en', NumberFormatter::CURRENCY);
+        if (class_exists(NumberFormatter::class)) {
+            $formatter = new NumberFormatter('en', NumberFormatter::CURRENCY);
 
-        return $formatter->formatCurrency($this->getAmountDecimal(), $this->currency);
+            return $formatter->formatCurrency($this->getAmountDecimal(), $this->currency);
+        }
+
+        $amount = number_format($this->getAmountDecimal(), 2);
+        $symbols = ['USD' => '$', 'EUR' => '€', 'GBP' => '£', 'JPY' => '¥'];
+
+        return ($symbols[strtoupper($this->currency)] ?? $this->currency.' ').$amount;
     }
 
     /**

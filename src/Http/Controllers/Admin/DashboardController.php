@@ -199,8 +199,15 @@ final class DashboardController extends Controller
 
     private function formatMoney(int $cents, string $currency): string
     {
-        $formatter = new NumberFormatter('en', NumberFormatter::CURRENCY);
+        if (class_exists(\NumberFormatter::class)) {
+            $formatter = new \NumberFormatter('en', \NumberFormatter::CURRENCY);
 
-        return $formatter->formatCurrency($cents / 100, $currency);
+            return $formatter->formatCurrency($cents / 100, $currency);
+        }
+
+        $amount = number_format($cents / 100, 2);
+        $symbols = ['USD' => '$', 'EUR' => '€', 'GBP' => '£', 'JPY' => '¥'];
+
+        return ($symbols[strtoupper($currency)] ?? $currency.' ').$amount;
     }
 }
