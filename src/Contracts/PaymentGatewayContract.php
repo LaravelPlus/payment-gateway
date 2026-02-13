@@ -2,11 +2,11 @@
 
 declare(strict_types=1);
 
-namespace Nejcc\PaymentGateway\Contracts;
+namespace LaravelPlus\PaymentGateway\Contracts;
 
-use Nejcc\PaymentGateway\DTOs\Customer;
-use Nejcc\PaymentGateway\DTOs\PaymentIntent;
-use Nejcc\PaymentGateway\DTOs\PaymentResult;
+use LaravelPlus\PaymentGateway\DTOs\Customer;
+use LaravelPlus\PaymentGateway\DTOs\PaymentIntent;
+use LaravelPlus\PaymentGateway\DTOs\PaymentResult;
 
 interface PaymentGatewayContract
 {

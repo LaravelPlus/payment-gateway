@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace Nejcc\PaymentGateway\Exceptions;
+namespace LaravelPlus\PaymentGateway\Exceptions;
 
 use Exception;
-use Nejcc\PaymentGateway\Enums\PaymentStatus;
+use LaravelPlus\PaymentGateway\Enums\PaymentStatus;
 use Throwable;
 
 /**

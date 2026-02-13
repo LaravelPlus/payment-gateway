@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace Nejcc\PaymentGateway\Database\Factories;
+namespace LaravelPlus\PaymentGateway\Database\Factories;
 
 use Illuminate\Database\Eloquent\Factories\Factory;
-use Nejcc\PaymentGateway\Models\PaymentMethod;
+use LaravelPlus\PaymentGateway\Models\PaymentMethod;
 
 /**
  * @extends Factory<PaymentMethod>

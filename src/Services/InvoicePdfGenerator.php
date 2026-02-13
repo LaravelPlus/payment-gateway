@@ -2,11 +2,11 @@
 
 declare(strict_types=1);
 
-namespace Nejcc\PaymentGateway\Services;
+namespace LaravelPlus\PaymentGateway\Services;
 
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\View;
-use Nejcc\PaymentGateway\Models\Invoice;
+use LaravelPlus\PaymentGateway\Models\Invoice;
 
 /**
  * Invoice PDF Generator Service.

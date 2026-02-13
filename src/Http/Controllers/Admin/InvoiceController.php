@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Nejcc\PaymentGateway\Http\Controllers\Admin;
+namespace LaravelPlus\PaymentGateway\Http\Controllers\Admin;
 
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -10,9 +10,9 @@ use Illuminate\Routing\Controller;
 use Illuminate\Support\Facades\Storage;
 use Inertia\Inertia;
 use Inertia\Response;
-use Nejcc\PaymentGateway\Enums\InvoiceStatus;
-use Nejcc\PaymentGateway\Models\Invoice;
-use Nejcc\PaymentGateway\Services\InvoicePdfGenerator;
+use LaravelPlus\PaymentGateway\Enums\InvoiceStatus;
+use LaravelPlus\PaymentGateway\Models\Invoice;
+use LaravelPlus\PaymentGateway\Services\InvoicePdfGenerator;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
 final class InvoiceController extends Controller

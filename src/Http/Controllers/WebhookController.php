@@ -2,17 +2,17 @@
 
 declare(strict_types=1);
 
-namespace Nejcc\PaymentGateway\Http\Controllers;
+namespace LaravelPlus\PaymentGateway\Http\Controllers;
 
 use Exception;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
-use Nejcc\PaymentGateway\Contracts\SupportsWebhooks;
-use Nejcc\PaymentGateway\Events\PaymentWebhookReceived;
-use Nejcc\PaymentGateway\Events\WebhookHandled;
-use Nejcc\PaymentGateway\Events\WebhookHandleFailed;
-use Nejcc\PaymentGateway\Facades\Payment;
+use LaravelPlus\PaymentGateway\Contracts\SupportsWebhooks;
+use LaravelPlus\PaymentGateway\Events\PaymentWebhookReceived;
+use LaravelPlus\PaymentGateway\Events\WebhookHandled;
+use LaravelPlus\PaymentGateway\Events\WebhookHandleFailed;
+use LaravelPlus\PaymentGateway\Facades\Payment;
 
 final class WebhookController extends Controller
 {

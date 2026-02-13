@@ -2,17 +2,17 @@
 
 declare(strict_types=1);
 
-namespace Nejcc\PaymentGateway\Http\Controllers\Admin;
+namespace LaravelPlus\PaymentGateway\Http\Controllers\Admin;
 
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
 use Inertia\Inertia;
 use Inertia\Response;
-use Nejcc\PaymentGateway\Enums\PaymentStatus;
-use Nejcc\PaymentGateway\Facades\Payment;
-use Nejcc\PaymentGateway\Http\Requests\Admin\RefundTransactionRequest;
-use Nejcc\PaymentGateway\Models\Transaction;
+use LaravelPlus\PaymentGateway\Enums\PaymentStatus;
+use LaravelPlus\PaymentGateway\Facades\Payment;
+use LaravelPlus\PaymentGateway\Http\Requests\Admin\RefundTransactionRequest;
+use LaravelPlus\PaymentGateway\Models\Transaction;
 
 final class TransactionController extends Controller
 {

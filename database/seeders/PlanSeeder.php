@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace Nejcc\PaymentGateway\Database\Seeders;
+namespace LaravelPlus\PaymentGateway\Database\Seeders;
 
 use Illuminate\Database\Seeder;
-use Nejcc\PaymentGateway\Models\Plan;
+use LaravelPlus\PaymentGateway\Models\Plan;
 
 final class PlanSeeder extends Seeder
 {

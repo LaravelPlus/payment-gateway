@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Nejcc\PaymentGateway\Enums;
+namespace LaravelPlus\PaymentGateway\Enums;
 
 enum PaymentDriver: string
 {

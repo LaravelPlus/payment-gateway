@@ -2,15 +2,15 @@
 
 declare(strict_types=1);
 
-namespace Nejcc\PaymentGateway\Models;
+namespace LaravelPlus\PaymentGateway\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Support\Str;
-use Nejcc\PaymentGateway\Database\Factories\SubscriptionFactory;
-use Nejcc\PaymentGateway\DTOs\Subscription as SubscriptionDto;
-use Nejcc\PaymentGateway\Enums\SubscriptionStatus;
+use LaravelPlus\PaymentGateway\Database\Factories\SubscriptionFactory;
+use LaravelPlus\PaymentGateway\DTOs\Subscription as SubscriptionDto;
+use LaravelPlus\PaymentGateway\Enums\SubscriptionStatus;
 use NumberFormatter;
 
 final class Subscription extends Model

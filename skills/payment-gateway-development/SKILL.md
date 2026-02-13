@@ -1,7 +1,7 @@
 ---
 name: payment-gateway-development
 description: >-
-  Activate when working with the nejcc/payment-gateway package — using the
+  Activate when working with the laravelplus/payment-gateway package — using the
   Payment facade, Billable trait, creating payment drivers, managing
   transactions, subscriptions, plans, invoices, refunds, webhooks, or building
   admin pages under admin/payments.
@@ -9,8 +9,8 @@ description: >-
 
 # Payment Gateway Development
 
-Package: `nejcc/payment-gateway` — Location: `packages/nejcc/payment-gateway/`
-Namespace: `Nejcc\PaymentGateway` — Facade: `Payment` — Config: `payment-gateway`
+Package: `laravelplus/payment-gateway` — Location: `packages/laravelplus/payment-gateway/`
+Namespace: `LaravelPlus\PaymentGateway` — Facade: `Payment` — Config: `payment-gateway`
 
 ## When to Apply
 
@@ -27,7 +27,7 @@ Namespace: `Nejcc\PaymentGateway` — Facade: `Payment` — Config: `payment-gat
 Uses Laravel's `Manager` class via `PaymentGatewayManager`. Access drivers through the facade:
 
 <code-snippet name="Payment Facade Usage" lang="php">
-use Nejcc\PaymentGateway\Facades\Payment;
+use LaravelPlus\PaymentGateway\Facades\Payment;
 
 // Default driver (from config)
 Payment::charge($amount, $currency, $paymentMethodId);
@@ -94,7 +94,7 @@ public function createMyDriverDriver(): PaymentGatewayContract
 Applied to `User` model. Provides:
 
 <code-snippet name="Billable Trait Methods" lang="php">
-use Nejcc\PaymentGateway\Traits\Billable;
+use LaravelPlus\PaymentGateway\Traits\Billable;
 
 // Relationships
 $user->paymentCustomers();     // HasMany

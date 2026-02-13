@@ -2,12 +2,12 @@
 
 declare(strict_types=1);
 
-namespace Nejcc\PaymentGateway\Traits;
+namespace LaravelPlus\PaymentGateway\Traits;
 
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
-use Nejcc\PaymentGateway\DTOs\Customer;
-use Nejcc\PaymentGateway\Facades\Payment;
+use LaravelPlus\PaymentGateway\DTOs\Customer;
+use LaravelPlus\PaymentGateway\Facades\Payment;
 use RuntimeException;
 
 /**
@@ -109,7 +109,7 @@ trait Billable
     {
         $gateway = Payment::driver($driver);
 
-        if (!($gateway instanceof \Nejcc\PaymentGateway\Contracts\SupportsCustomers)) {
+        if (!($gateway instanceof \LaravelPlus\PaymentGateway\Contracts\SupportsCustomers)) {
             throw new RuntimeException("Driver {$driver} does not support customer management.");
         }
 
@@ -137,7 +137,7 @@ trait Billable
 
         if ($customerId !== null) {
             $gateway = Payment::driver($driver);
-            if ($gateway instanceof \Nejcc\PaymentGateway\Contracts\SupportsCustomers) {
+            if ($gateway instanceof \LaravelPlus\PaymentGateway\Contracts\SupportsCustomers) {
                 $customer = $gateway->getCustomer($customerId);
                 if ($customer !== null) {
                     return $customer;
@@ -162,7 +162,7 @@ trait Billable
      * @param  int  $amount  Amount in cents
      * @param  array<string, mixed>  $options
      */
-    public function charge(int $amount, string $paymentMethodId, array $options = []): \Nejcc\PaymentGateway\DTOs\PaymentResult
+    public function charge(int $amount, string $paymentMethodId, array $options = []): \LaravelPlus\PaymentGateway\DTOs\PaymentResult
     {
         $driver = $options['driver'] ?? null;
         $currency = $options['currency'] ?? config('payment-gateway.currency');

@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Nejcc\PaymentGateway\Events;
+namespace LaravelPlus\PaymentGateway\Events;
 
 use Illuminate\Broadcasting\InteractsWithSockets;
 use Illuminate\Foundation\Events\Dispatchable;

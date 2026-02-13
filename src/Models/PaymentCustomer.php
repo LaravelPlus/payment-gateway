@@ -2,17 +2,17 @@
 
 declare(strict_types=1);
 
-namespace Nejcc\PaymentGateway\Models;
+namespace LaravelPlus\PaymentGateway\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
-use Nejcc\PaymentGateway\Database\Factories\PaymentCustomerFactory;
-use Nejcc\PaymentGateway\DTOs\Address;
-use Nejcc\PaymentGateway\DTOs\Company;
-use Nejcc\PaymentGateway\DTOs\Customer;
+use LaravelPlus\PaymentGateway\Database\Factories\PaymentCustomerFactory;
+use LaravelPlus\PaymentGateway\DTOs\Address;
+use LaravelPlus\PaymentGateway\DTOs\Company;
+use LaravelPlus\PaymentGateway\DTOs\Customer;
 
 final class PaymentCustomer extends Model
 {

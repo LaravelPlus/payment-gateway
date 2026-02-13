@@ -28,11 +28,11 @@ A flexible multi-provider payment gateway package for Laravel with support for S
 
 ```bash
 # 1. Copy package to your Laravel project
-mkdir -p packages/nejcc
-cp -r /path/to/payment-gateway packages/nejcc/
+mkdir -p packages/laravelplus
+cp -r /path/to/payment-gateway packages/laravelplus/
 
 # 2. Run the install script
-./packages/nejcc/payment-gateway/install.sh
+./packages/laravelplus/payment-gateway/install.sh
 ```
 
 The install script will:
@@ -45,8 +45,8 @@ The install script will:
 #### Step 1: Copy the package
 
 ```bash
-mkdir -p packages/nejcc
-cp -r /path/to/payment-gateway packages/nejcc/
+mkdir -p packages/laravelplus
+cp -r /path/to/payment-gateway packages/laravelplus/
 ```
 
 #### Step 2: Add to composer.json
@@ -58,14 +58,14 @@ Since this is a local package (not on Packagist), add a repository entry:
     "repositories": [
         {
             "type": "path",
-            "url": "packages/nejcc/payment-gateway",
+            "url": "packages/laravelplus/payment-gateway",
             "options": {
                 "symlink": true
             }
         }
     ],
     "require": {
-        "nejcc/payment-gateway": "@dev"
+        "laravelplus/payment-gateway": "@dev"
     }
 }
 ```
@@ -73,7 +73,7 @@ Since this is a local package (not on Packagist), add a repository entry:
 #### Step 3: Install with Composer
 
 ```bash
-composer update nejcc/payment-gateway
+composer update laravelplus/payment-gateway
 ```
 
 #### Step 4: Run the installer command
@@ -105,7 +105,7 @@ php artisan migrate
 Then add to your User model:
 
 ```php
-use Nejcc\PaymentGateway\Traits\Billable;
+use LaravelPlus\PaymentGateway\Traits\Billable;
 
 class User extends Authenticatable
 {
@@ -142,7 +142,7 @@ SUBSCRIPTION_ALLOW_FREE=true
 ### Basic Payment
 
 ```php
-use Nejcc\PaymentGateway\Facades\Payment;
+use LaravelPlus\PaymentGateway\Facades\Payment;
 
 // Create a payment intent
 $intent = Payment::createPaymentIntent(
@@ -182,7 +182,7 @@ Payment::driver('bank_transfer')->charge(...);
 ### Subscriptions (Stripe)
 
 ```php
-use Nejcc\PaymentGateway\Facades\Payment;
+use LaravelPlus\PaymentGateway\Facades\Payment;
 
 $stripe = Payment::driver('stripe');
 
@@ -217,7 +217,7 @@ $customer = $user->paymentCustomer('stripe');
 ### Plans
 
 ```php
-use Nejcc\PaymentGateway\Models\Plan;
+use LaravelPlus\PaymentGateway\Models\Plan;
 
 // Get all public plans for pricing page
 $plans = Plan::forPricingPage();
@@ -248,8 +248,8 @@ Webhook routes are automatically registered at:
 Listen to events in your `EventServiceProvider`:
 
 ```php
-use Nejcc\PaymentGateway\Events\PaymentSucceeded;
-use Nejcc\PaymentGateway\Events\SubscriptionCreated;
+use LaravelPlus\PaymentGateway\Events\PaymentSucceeded;
+use LaravelPlus\PaymentGateway\Events\SubscriptionCreated;
 
 protected $listen = [
     PaymentSucceeded::class => [
@@ -308,7 +308,7 @@ return [
 Invoices are automatically generated for successful payments:
 
 ```php
-use Nejcc\PaymentGateway\Models\Invoice;
+use LaravelPlus\PaymentGateway\Models\Invoice;
 
 // Get user invoices
 $invoices = $user->invoices()->paid()->get();
@@ -400,10 +400,10 @@ The package creates these tables:
 The package includes factories for all models:
 
 ```php
-use Nejcc\PaymentGateway\Models\Transaction;
-use Nejcc\PaymentGateway\Models\Subscription;
-use Nejcc\PaymentGateway\Models\Plan;
-use Nejcc\PaymentGateway\Models\Invoice;
+use LaravelPlus\PaymentGateway\Models\Transaction;
+use LaravelPlus\PaymentGateway\Models\Subscription;
+use LaravelPlus\PaymentGateway\Models\Plan;
+use LaravelPlus\PaymentGateway\Models\Invoice;
 
 // Create a successful transaction
 $transaction = Transaction::factory()->succeeded()->stripe()->create();

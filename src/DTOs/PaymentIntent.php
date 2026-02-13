@@ -2,11 +2,11 @@
 
 declare(strict_types=1);
 
-namespace Nejcc\PaymentGateway\DTOs;
+namespace LaravelPlus\PaymentGateway\DTOs;
 
 use DateTimeImmutable;
 use DateTimeInterface;
-use Nejcc\PaymentGateway\Enums\PaymentStatus;
+use LaravelPlus\PaymentGateway\Enums\PaymentStatus;
 
 /**
  * Payment intent data transfer object.

@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Nejcc\PaymentGateway\DTOs;
+namespace LaravelPlus\PaymentGateway\DTOs;
 
 use NumberFormatter;
 

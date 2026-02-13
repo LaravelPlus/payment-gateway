@@ -1,11 +1,11 @@
 {
-    "name": "laraveplus/payment-gateway",
+    "name": "laravelplus/payment-gateway",
     "description": "A flexible multi-provider payment gateway for Laravel with support for Stripe, PayPal, Crypto, and more.",
     "keywords": ["laravel", "payment", "gateway", "stripe", "paypal", "crypto", "subscriptions"],
     "license": "MIT",
     "authors": [
         {
-            "name": "Nejc",
+            "name": "LaravelPlus",
             "email": "nejc@example.com"
         }
     ],
@@ -26,21 +26,21 @@
     },
     "autoload": {
         "psr-4": {
-            "Nejcc\\PaymentGateway\\": "src/"
+            "LaravelPlus\\PaymentGateway\\": "src/"
         }
     },
     "autoload-dev": {
         "psr-4": {
-            "Nejcc\\PaymentGateway\\Tests\\": "tests/"
+            "LaravelPlus\\PaymentGateway\\Tests\\": "tests/"
         }
     },
     "extra": {
         "laravel": {
             "providers": [
-                "Nejcc\\PaymentGateway\\PaymentGatewayServiceProvider"
+                "LaravelPlus\\PaymentGateway\\PaymentGatewayServiceProvider"
             ],
             "aliases": {
-                "Payment": "Nejcc\\PaymentGateway\\Facades\\Payment"
+                "Payment": "LaravelPlus\\PaymentGateway\\Facades\\Payment"
             }
         }
     },

@@ -158,11 +158,11 @@ return [
     |
     */
     'models' => [
-        'transaction' => Nejcc\PaymentGateway\Models\Transaction::class,
-        'subscription' => Nejcc\PaymentGateway\Models\Subscription::class,
-        'plan' => Nejcc\PaymentGateway\Models\Plan::class,
-        'payment_method' => Nejcc\PaymentGateway\Models\PaymentMethod::class,
-        'refund' => Nejcc\PaymentGateway\Models\Refund::class,
+        'transaction' => LaravelPlus\PaymentGateway\Models\Transaction::class,
+        'subscription' => LaravelPlus\PaymentGateway\Models\Subscription::class,
+        'plan' => LaravelPlus\PaymentGateway\Models\Plan::class,
+        'payment_method' => LaravelPlus\PaymentGateway\Models\PaymentMethod::class,
+        'refund' => LaravelPlus\PaymentGateway\Models\Refund::class,
     ],
 
     /*

@@ -2,14 +2,14 @@
 
 declare(strict_types=1);
 
-namespace Nejcc\PaymentGateway\Mail;
+namespace LaravelPlus\PaymentGateway\Mail;
 
 use Illuminate\Bus\Queueable;
 use Illuminate\Mail\Mailable;
 use Illuminate\Mail\Mailables\Content;
 use Illuminate\Mail\Mailables\Envelope;
 use Illuminate\Queue\SerializesModels;
-use Nejcc\PaymentGateway\Models\Subscription;
+use LaravelPlus\PaymentGateway\Models\Subscription;
 use NumberFormatter;
 
 final class SubscriptionTrialEndingMail extends Mailable

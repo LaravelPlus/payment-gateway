@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace Nejcc\PaymentGateway\Contracts;
+namespace LaravelPlus\PaymentGateway\Contracts;
 
-use Nejcc\PaymentGateway\DTOs\Customer;
-use Nejcc\PaymentGateway\DTOs\PaymentMethodData;
+use LaravelPlus\PaymentGateway\DTOs\Customer;
+use LaravelPlus\PaymentGateway\DTOs\PaymentMethodData;
 
 interface SupportsCustomers
 {

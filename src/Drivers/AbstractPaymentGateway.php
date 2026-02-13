@@ -2,14 +2,14 @@
 
 declare(strict_types=1);
 
-namespace Nejcc\PaymentGateway\Drivers;
+namespace LaravelPlus\PaymentGateway\Drivers;
 
 use Illuminate\Support\Facades\Log;
-use Nejcc\PaymentGateway\Contracts\PaymentGatewayContract;
-use Nejcc\PaymentGateway\DTOs\Customer;
-use Nejcc\PaymentGateway\DTOs\PaymentIntent;
-use Nejcc\PaymentGateway\DTOs\PaymentResult;
-use Nejcc\PaymentGateway\Exceptions\PaymentException;
+use LaravelPlus\PaymentGateway\Contracts\PaymentGatewayContract;
+use LaravelPlus\PaymentGateway\DTOs\Customer;
+use LaravelPlus\PaymentGateway\DTOs\PaymentIntent;
+use LaravelPlus\PaymentGateway\DTOs\PaymentResult;
+use LaravelPlus\PaymentGateway\Exceptions\PaymentException;
 use NumberFormatter;
 use Throwable;
 

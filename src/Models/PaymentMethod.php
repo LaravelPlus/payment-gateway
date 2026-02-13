@@ -2,13 +2,13 @@
 
 declare(strict_types=1);
 
-namespace Nejcc\PaymentGateway\Models;
+namespace LaravelPlus\PaymentGateway\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Support\Str;
-use Nejcc\PaymentGateway\Database\Factories\PaymentMethodFactory;
+use LaravelPlus\PaymentGateway\Database\Factories\PaymentMethodFactory;
 
 final class PaymentMethod extends Model
 {

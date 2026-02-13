@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Nejcc\PaymentGateway\Models;
+namespace LaravelPlus\PaymentGateway\Models;
 
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -10,8 +10,8 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
-use Nejcc\PaymentGateway\Database\Factories\InvoiceFactory;
-use Nejcc\PaymentGateway\Enums\InvoiceStatus;
+use LaravelPlus\PaymentGateway\Database\Factories\InvoiceFactory;
+use LaravelPlus\PaymentGateway\Enums\InvoiceStatus;
 use NumberFormatter;
 
 /**

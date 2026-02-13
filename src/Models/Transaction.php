@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Nejcc\PaymentGateway\Models;
+namespace LaravelPlus\PaymentGateway\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -10,9 +10,9 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\MorphTo;
 use Illuminate\Support\Str;
-use Nejcc\PaymentGateway\Database\Factories\TransactionFactory;
-use Nejcc\PaymentGateway\DTOs\PaymentResult;
-use Nejcc\PaymentGateway\Enums\PaymentStatus;
+use LaravelPlus\PaymentGateway\Database\Factories\TransactionFactory;
+use LaravelPlus\PaymentGateway\DTOs\PaymentResult;
+use LaravelPlus\PaymentGateway\Enums\PaymentStatus;
 use NumberFormatter;
 
 final class Transaction extends Model

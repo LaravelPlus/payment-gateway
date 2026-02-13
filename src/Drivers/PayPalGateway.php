@@ -2,21 +2,21 @@
 
 declare(strict_types=1);
 
-namespace Nejcc\PaymentGateway\Drivers;
+namespace LaravelPlus\PaymentGateway\Drivers;
 
 use DateTimeImmutable;
 use Exception;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
-use Nejcc\PaymentGateway\Contracts\SupportsRefunds;
-use Nejcc\PaymentGateway\Contracts\SupportsWebhooks;
-use Nejcc\PaymentGateway\DTOs\Customer;
-use Nejcc\PaymentGateway\DTOs\PaymentIntent;
-use Nejcc\PaymentGateway\DTOs\PaymentResult;
-use Nejcc\PaymentGateway\DTOs\Refund;
-use Nejcc\PaymentGateway\DTOs\WebhookPayload;
-use Nejcc\PaymentGateway\Enums\PaymentStatus;
-use Nejcc\PaymentGateway\Exceptions\PaymentException;
+use LaravelPlus\PaymentGateway\Contracts\SupportsRefunds;
+use LaravelPlus\PaymentGateway\Contracts\SupportsWebhooks;
+use LaravelPlus\PaymentGateway\DTOs\Customer;
+use LaravelPlus\PaymentGateway\DTOs\PaymentIntent;
+use LaravelPlus\PaymentGateway\DTOs\PaymentResult;
+use LaravelPlus\PaymentGateway\DTOs\Refund;
+use LaravelPlus\PaymentGateway\DTOs\WebhookPayload;
+use LaravelPlus\PaymentGateway\Enums\PaymentStatus;
+use LaravelPlus\PaymentGateway\Exceptions\PaymentException;
 
 /**
  * PayPal Payment Gateway Driver.

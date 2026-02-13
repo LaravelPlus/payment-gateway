@@ -2,14 +2,14 @@
 
 declare(strict_types=1);
 
-namespace Nejcc\PaymentGateway\Facades;
+namespace LaravelPlus\PaymentGateway\Facades;
 
 use Illuminate\Support\Facades\Facade;
-use Nejcc\PaymentGateway\Contracts\PaymentGatewayContract;
-use Nejcc\PaymentGateway\DTOs\Customer;
-use Nejcc\PaymentGateway\DTOs\PaymentIntent;
-use Nejcc\PaymentGateway\DTOs\PaymentResult;
-use Nejcc\PaymentGateway\PaymentGatewayManager;
+use LaravelPlus\PaymentGateway\Contracts\PaymentGatewayContract;
+use LaravelPlus\PaymentGateway\DTOs\Customer;
+use LaravelPlus\PaymentGateway\DTOs\PaymentIntent;
+use LaravelPlus\PaymentGateway\DTOs\PaymentResult;
+use LaravelPlus\PaymentGateway\PaymentGatewayManager;
 
 /**
  * Payment Facade.

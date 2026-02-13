@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace Nejcc\PaymentGateway\Contracts;
+namespace LaravelPlus\PaymentGateway\Contracts;
 
-use Nejcc\PaymentGateway\DTOs\Refund;
+use LaravelPlus\PaymentGateway\DTOs\Refund;
 
 interface SupportsRefunds
 {

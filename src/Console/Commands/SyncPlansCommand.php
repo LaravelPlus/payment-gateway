@@ -2,13 +2,13 @@
 
 declare(strict_types=1);
 
-namespace Nejcc\PaymentGateway\Console\Commands;
+namespace LaravelPlus\PaymentGateway\Console\Commands;
 
 use Exception;
 use Illuminate\Console\Command;
 use InvalidArgumentException;
-use Nejcc\PaymentGateway\Facades\Payment;
-use Nejcc\PaymentGateway\Models\Plan;
+use LaravelPlus\PaymentGateway\Facades\Payment;
+use LaravelPlus\PaymentGateway\Models\Plan;
 
 use function Laravel\Prompts\confirm;
 use function Laravel\Prompts\info;

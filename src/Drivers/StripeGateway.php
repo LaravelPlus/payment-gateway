@@ -2,25 +2,25 @@
 
 declare(strict_types=1);
 
-namespace Nejcc\PaymentGateway\Drivers;
+namespace LaravelPlus\PaymentGateway\Drivers;
 
 use DateTimeImmutable;
 use Illuminate\Http\Request;
-use Nejcc\PaymentGateway\Contracts\SupportsCustomers;
-use Nejcc\PaymentGateway\Contracts\SupportsRefunds;
-use Nejcc\PaymentGateway\Contracts\SupportsSubscriptions;
-use Nejcc\PaymentGateway\Contracts\SupportsWebhooks;
-use Nejcc\PaymentGateway\DTOs\Customer;
-use Nejcc\PaymentGateway\DTOs\PaymentIntent;
-use Nejcc\PaymentGateway\DTOs\PaymentMethodData;
-use Nejcc\PaymentGateway\DTOs\PaymentResult;
-use Nejcc\PaymentGateway\DTOs\Refund;
-use Nejcc\PaymentGateway\DTOs\Subscription;
-use Nejcc\PaymentGateway\DTOs\SubscriptionPlan;
-use Nejcc\PaymentGateway\DTOs\WebhookPayload;
-use Nejcc\PaymentGateway\Enums\PaymentStatus;
-use Nejcc\PaymentGateway\Enums\SubscriptionStatus;
-use Nejcc\PaymentGateway\Exceptions\PaymentException;
+use LaravelPlus\PaymentGateway\Contracts\SupportsCustomers;
+use LaravelPlus\PaymentGateway\Contracts\SupportsRefunds;
+use LaravelPlus\PaymentGateway\Contracts\SupportsSubscriptions;
+use LaravelPlus\PaymentGateway\Contracts\SupportsWebhooks;
+use LaravelPlus\PaymentGateway\DTOs\Customer;
+use LaravelPlus\PaymentGateway\DTOs\PaymentIntent;
+use LaravelPlus\PaymentGateway\DTOs\PaymentMethodData;
+use LaravelPlus\PaymentGateway\DTOs\PaymentResult;
+use LaravelPlus\PaymentGateway\DTOs\Refund;
+use LaravelPlus\PaymentGateway\DTOs\Subscription;
+use LaravelPlus\PaymentGateway\DTOs\SubscriptionPlan;
+use LaravelPlus\PaymentGateway\DTOs\WebhookPayload;
+use LaravelPlus\PaymentGateway\Enums\PaymentStatus;
+use LaravelPlus\PaymentGateway\Enums\SubscriptionStatus;
+use LaravelPlus\PaymentGateway\Exceptions\PaymentException;
 
 /**
  * Stripe Payment Gateway Driver.

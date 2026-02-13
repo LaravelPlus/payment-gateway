@@ -2,18 +2,18 @@
 
 declare(strict_types=1);
 
-namespace Nejcc\PaymentGateway\Listeners;
+namespace LaravelPlus\PaymentGateway\Listeners;
 
-use Nejcc\PaymentGateway\Events\PaymentFailed;
-use Nejcc\PaymentGateway\Events\PaymentSucceeded;
-use Nejcc\PaymentGateway\Events\RefundProcessed;
-use Nejcc\PaymentGateway\Events\SubscriptionCanceled;
-use Nejcc\PaymentGateway\Events\SubscriptionCreated;
-use Nejcc\PaymentGateway\Models\Invoice;
-use Nejcc\PaymentGateway\Models\Refund;
-use Nejcc\PaymentGateway\Models\Subscription;
-use Nejcc\PaymentGateway\Models\Transaction;
-use Nejcc\PaymentGateway\Services\PaymentNotificationService;
+use LaravelPlus\PaymentGateway\Events\PaymentFailed;
+use LaravelPlus\PaymentGateway\Events\PaymentSucceeded;
+use LaravelPlus\PaymentGateway\Events\RefundProcessed;
+use LaravelPlus\PaymentGateway\Events\SubscriptionCanceled;
+use LaravelPlus\PaymentGateway\Events\SubscriptionCreated;
+use LaravelPlus\PaymentGateway\Models\Invoice;
+use LaravelPlus\PaymentGateway\Models\Refund;
+use LaravelPlus\PaymentGateway\Models\Subscription;
+use LaravelPlus\PaymentGateway\Models\Transaction;
+use LaravelPlus\PaymentGateway\Services\PaymentNotificationService;
 
 /**
  * Event subscriber for sending payment notifications.

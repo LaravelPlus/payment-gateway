@@ -3,12 +3,12 @@
 declare(strict_types=1);
 
 use Illuminate\Support\Facades\Route;
-use Nejcc\PaymentGateway\Http\Controllers\Admin\CustomerController;
-use Nejcc\PaymentGateway\Http\Controllers\Admin\DashboardController;
-use Nejcc\PaymentGateway\Http\Controllers\Admin\InvoiceController;
-use Nejcc\PaymentGateway\Http\Controllers\Admin\PlanController;
-use Nejcc\PaymentGateway\Http\Controllers\Admin\SubscriptionController;
-use Nejcc\PaymentGateway\Http\Controllers\Admin\TransactionController;
+use LaravelPlus\PaymentGateway\Http\Controllers\Admin\CustomerController;
+use LaravelPlus\PaymentGateway\Http\Controllers\Admin\DashboardController;
+use LaravelPlus\PaymentGateway\Http\Controllers\Admin\InvoiceController;
+use LaravelPlus\PaymentGateway\Http\Controllers\Admin\PlanController;
+use LaravelPlus\PaymentGateway\Http\Controllers\Admin\SubscriptionController;
+use LaravelPlus\PaymentGateway\Http\Controllers\Admin\TransactionController;
 
 /*
 |--------------------------------------------------------------------------

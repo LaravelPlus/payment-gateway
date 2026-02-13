@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Nejcc\PaymentGateway\Console\Commands;
+namespace LaravelPlus\PaymentGateway\Console\Commands;
 
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\File;
@@ -146,7 +146,7 @@ final class InstallCommand extends Command
         $content = File::get($userModelPath);
 
         // Check if already added
-        if (str_contains($content, 'use Nejcc\PaymentGateway\Traits\Billable')) {
+        if (str_contains($content, 'use LaravelPlus\PaymentGateway\Traits\Billable')) {
             note('Billable trait already added to User model.');
 
             return;
@@ -155,7 +155,7 @@ final class InstallCommand extends Command
         info('Adding Billable trait to User model...');
 
         // Add import
-        $importStatement = "use Nejcc\\PaymentGateway\\Traits\\Billable;\n";
+        $importStatement = "use LaravelPlus\\PaymentGateway\\Traits\\Billable;\n";
 
         // Find the last use statement in imports
         if (preg_match('/^(use [^;]+;\n)(?!use )/m', $content, $matches, PREG_OFFSET_SET)) {
@@ -198,7 +198,7 @@ final class InstallCommand extends Command
             $content = File::get($seederSource);
             // Update namespace
             $content = str_replace(
-                'namespace Nejcc\PaymentGateway\Database\Seeders;',
+                'namespace LaravelPlus\PaymentGateway\Database\Seeders;',
                 'namespace Database\Seeders;',
                 $content
             );
@@ -285,7 +285,7 @@ ENV;
         $this->line('     <comment>Payment::driver(\'stripe\')->createPaymentIntent(1999, \'USD\');</comment>');
         $this->newLine();
 
-        $this->line('  Documentation: <href=https://github.com/nejcc/payment-gateway>https://github.com/nejcc/payment-gateway</>');
+        $this->line('  Documentation: <href=https://github.com/LaravelPlus/payment-gateway>https://github.com/LaravelPlus/payment-gateway</>');
         $this->newLine();
     }
 }

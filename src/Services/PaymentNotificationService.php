@@ -2,19 +2,19 @@
 
 declare(strict_types=1);
 
-namespace Nejcc\PaymentGateway\Services;
+namespace LaravelPlus\PaymentGateway\Services;
 
 use Illuminate\Support\Facades\Mail;
-use Nejcc\PaymentGateway\Mail\PaymentFailedMail;
-use Nejcc\PaymentGateway\Mail\PaymentReceiptMail;
-use Nejcc\PaymentGateway\Mail\RefundProcessedMail;
-use Nejcc\PaymentGateway\Mail\SubscriptionCanceledMail;
-use Nejcc\PaymentGateway\Mail\SubscriptionCreatedMail;
-use Nejcc\PaymentGateway\Mail\SubscriptionTrialEndingMail;
-use Nejcc\PaymentGateway\Models\Invoice;
-use Nejcc\PaymentGateway\Models\Refund;
-use Nejcc\PaymentGateway\Models\Subscription;
-use Nejcc\PaymentGateway\Models\Transaction;
+use LaravelPlus\PaymentGateway\Mail\PaymentFailedMail;
+use LaravelPlus\PaymentGateway\Mail\PaymentReceiptMail;
+use LaravelPlus\PaymentGateway\Mail\RefundProcessedMail;
+use LaravelPlus\PaymentGateway\Mail\SubscriptionCanceledMail;
+use LaravelPlus\PaymentGateway\Mail\SubscriptionCreatedMail;
+use LaravelPlus\PaymentGateway\Mail\SubscriptionTrialEndingMail;
+use LaravelPlus\PaymentGateway\Models\Invoice;
+use LaravelPlus\PaymentGateway\Models\Refund;
+use LaravelPlus\PaymentGateway\Models\Subscription;
+use LaravelPlus\PaymentGateway\Models\Transaction;
 
 /**
  * Service for sending payment-related notifications.

@@ -2,11 +2,11 @@
 
 declare(strict_types=1);
 
-namespace Nejcc\PaymentGateway\DTOs;
+namespace LaravelPlus\PaymentGateway\DTOs;
 
 use DateTimeImmutable;
 use DateTimeInterface;
-use Nejcc\PaymentGateway\Enums\SubscriptionStatus;
+use LaravelPlus\PaymentGateway\Enums\SubscriptionStatus;
 
 /**
  * Subscription data transfer object.

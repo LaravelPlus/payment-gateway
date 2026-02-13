@@ -2,11 +2,11 @@
 
 declare(strict_types=1);
 
-namespace Nejcc\PaymentGateway\Database\Factories;
+namespace LaravelPlus\PaymentGateway\Database\Factories;
 
 use Illuminate\Database\Eloquent\Factories\Factory;
-use Nejcc\PaymentGateway\Enums\PaymentStatus;
-use Nejcc\PaymentGateway\Models\Transaction;
+use LaravelPlus\PaymentGateway\Enums\PaymentStatus;
+use LaravelPlus\PaymentGateway\Models\Transaction;
 
 /**
  * @extends Factory<Transaction>

@@ -2,22 +2,22 @@
 
 declare(strict_types=1);
 
-namespace Nejcc\PaymentGateway\Listeners;
+namespace LaravelPlus\PaymentGateway\Listeners;
 
 use Illuminate\Support\Facades\Log;
-use Nejcc\PaymentGateway\Enums\PaymentStatus;
-use Nejcc\PaymentGateway\Enums\SubscriptionStatus;
-use Nejcc\PaymentGateway\Events\PaymentFailed;
-use Nejcc\PaymentGateway\Events\PaymentSucceeded;
-use Nejcc\PaymentGateway\Events\PaymentWebhookReceived;
-use Nejcc\PaymentGateway\Events\RefundProcessed;
-use Nejcc\PaymentGateway\Events\SubscriptionCanceled;
-use Nejcc\PaymentGateway\Events\SubscriptionCreated;
-use Nejcc\PaymentGateway\Models\Invoice;
-use Nejcc\PaymentGateway\Models\Refund;
-use Nejcc\PaymentGateway\Models\Subscription;
-use Nejcc\PaymentGateway\Models\Transaction;
-use Nejcc\PaymentGateway\Services\InvoicePdfGenerator;
+use LaravelPlus\PaymentGateway\Enums\PaymentStatus;
+use LaravelPlus\PaymentGateway\Enums\SubscriptionStatus;
+use LaravelPlus\PaymentGateway\Events\PaymentFailed;
+use LaravelPlus\PaymentGateway\Events\PaymentSucceeded;
+use LaravelPlus\PaymentGateway\Events\PaymentWebhookReceived;
+use LaravelPlus\PaymentGateway\Events\RefundProcessed;
+use LaravelPlus\PaymentGateway\Events\SubscriptionCanceled;
+use LaravelPlus\PaymentGateway\Events\SubscriptionCreated;
+use LaravelPlus\PaymentGateway\Models\Invoice;
+use LaravelPlus\PaymentGateway\Models\Refund;
+use LaravelPlus\PaymentGateway\Models\Subscription;
+use LaravelPlus\PaymentGateway\Models\Transaction;
+use LaravelPlus\PaymentGateway\Services\InvoicePdfGenerator;
 
 /**
  * Handle Stripe webhook events and update database accordingly.

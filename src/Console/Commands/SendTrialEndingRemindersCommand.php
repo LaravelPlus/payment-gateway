@@ -2,12 +2,12 @@
 
 declare(strict_types=1);
 
-namespace Nejcc\PaymentGateway\Console\Commands;
+namespace LaravelPlus\PaymentGateway\Console\Commands;
 
 use Illuminate\Console\Command;
-use Nejcc\PaymentGateway\Enums\SubscriptionStatus;
-use Nejcc\PaymentGateway\Models\Subscription;
-use Nejcc\PaymentGateway\Services\PaymentNotificationService;
+use LaravelPlus\PaymentGateway\Enums\SubscriptionStatus;
+use LaravelPlus\PaymentGateway\Models\Subscription;
+use LaravelPlus\PaymentGateway\Services\PaymentNotificationService;
 
 final class SendTrialEndingRemindersCommand extends Command
 {

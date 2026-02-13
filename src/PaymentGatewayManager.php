@@ -2,16 +2,16 @@
 
 declare(strict_types=1);
 
-namespace Nejcc\PaymentGateway;
+namespace LaravelPlus\PaymentGateway;
 
 use Exception;
 use Illuminate\Support\Manager;
-use Nejcc\PaymentGateway\Contracts\PaymentGatewayContract;
-use Nejcc\PaymentGateway\Drivers\BankTransferGateway;
-use Nejcc\PaymentGateway\Drivers\CashOnDeliveryGateway;
-use Nejcc\PaymentGateway\Drivers\CryptoGateway;
-use Nejcc\PaymentGateway\Drivers\PayPalGateway;
-use Nejcc\PaymentGateway\Drivers\StripeGateway;
+use LaravelPlus\PaymentGateway\Contracts\PaymentGatewayContract;
+use LaravelPlus\PaymentGateway\Drivers\BankTransferGateway;
+use LaravelPlus\PaymentGateway\Drivers\CashOnDeliveryGateway;
+use LaravelPlus\PaymentGateway\Drivers\CryptoGateway;
+use LaravelPlus\PaymentGateway\Drivers\PayPalGateway;
+use LaravelPlus\PaymentGateway\Drivers\StripeGateway;
 
 /**
  * Payment Gateway Manager.

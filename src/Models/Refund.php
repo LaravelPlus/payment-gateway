@@ -2,14 +2,14 @@
 
 declare(strict_types=1);
 
-namespace Nejcc\PaymentGateway\Models;
+namespace LaravelPlus\PaymentGateway\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Support\Str;
-use Nejcc\PaymentGateway\Database\Factories\RefundFactory;
-use Nejcc\PaymentGateway\DTOs\Refund as RefundDto;
+use LaravelPlus\PaymentGateway\Database\Factories\RefundFactory;
+use LaravelPlus\PaymentGateway\DTOs\Refund as RefundDto;
 use NumberFormatter;
 
 final class Refund extends Model

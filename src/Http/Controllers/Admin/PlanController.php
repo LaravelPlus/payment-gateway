@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Nejcc\PaymentGateway\Http\Controllers\Admin;
+namespace LaravelPlus\PaymentGateway\Http\Controllers\Admin;
 
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -10,11 +10,11 @@ use Illuminate\Routing\Controller;
 use Illuminate\Support\Str;
 use Inertia\Inertia;
 use Inertia\Response;
-use Nejcc\PaymentGateway\Facades\Payment;
-use Nejcc\PaymentGateway\Http\Requests\Admin\StorePlanRequest;
-use Nejcc\PaymentGateway\Http\Requests\Admin\SyncPlanRequest;
-use Nejcc\PaymentGateway\Http\Requests\Admin\UpdatePlanRequest;
-use Nejcc\PaymentGateway\Models\Plan;
+use LaravelPlus\PaymentGateway\Facades\Payment;
+use LaravelPlus\PaymentGateway\Http\Requests\Admin\StorePlanRequest;
+use LaravelPlus\PaymentGateway\Http\Requests\Admin\SyncPlanRequest;
+use LaravelPlus\PaymentGateway\Http\Requests\Admin\UpdatePlanRequest;
+use LaravelPlus\PaymentGateway\Models\Plan;
 
 final class PlanController extends Controller
 {

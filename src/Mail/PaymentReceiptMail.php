@@ -2,15 +2,15 @@
 
 declare(strict_types=1);
 
-namespace Nejcc\PaymentGateway\Mail;
+namespace LaravelPlus\PaymentGateway\Mail;
 
 use Illuminate\Bus\Queueable;
 use Illuminate\Mail\Mailable;
 use Illuminate\Mail\Mailables\Content;
 use Illuminate\Mail\Mailables\Envelope;
 use Illuminate\Queue\SerializesModels;
-use Nejcc\PaymentGateway\Models\Invoice;
-use Nejcc\PaymentGateway\Models\Transaction;
+use LaravelPlus\PaymentGateway\Models\Invoice;
+use LaravelPlus\PaymentGateway\Models\Transaction;
 use NumberFormatter;
 
 final class PaymentReceiptMail extends Mailable

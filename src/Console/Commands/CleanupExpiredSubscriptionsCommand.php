@@ -2,11 +2,11 @@
 
 declare(strict_types=1);
 
-namespace Nejcc\PaymentGateway\Console\Commands;
+namespace LaravelPlus\PaymentGateway\Console\Commands;
 
 use Illuminate\Console\Command;
-use Nejcc\PaymentGateway\Enums\SubscriptionStatus;
-use Nejcc\PaymentGateway\Models\Subscription;
+use LaravelPlus\PaymentGateway\Enums\SubscriptionStatus;
+use LaravelPlus\PaymentGateway\Models\Subscription;
 
 final class CleanupExpiredSubscriptionsCommand extends Command
 {

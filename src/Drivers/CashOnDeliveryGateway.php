@@ -2,13 +2,13 @@
 
 declare(strict_types=1);
 
-namespace Nejcc\PaymentGateway\Drivers;
+namespace LaravelPlus\PaymentGateway\Drivers;
 
 use Illuminate\Support\Str;
-use Nejcc\PaymentGateway\DTOs\Customer;
-use Nejcc\PaymentGateway\DTOs\PaymentIntent;
-use Nejcc\PaymentGateway\DTOs\PaymentResult;
-use Nejcc\PaymentGateway\Enums\PaymentStatus;
+use LaravelPlus\PaymentGateway\DTOs\Customer;
+use LaravelPlus\PaymentGateway\DTOs\PaymentIntent;
+use LaravelPlus\PaymentGateway\DTOs\PaymentResult;
+use LaravelPlus\PaymentGateway\Enums\PaymentStatus;
 
 /**
  * Cash on Delivery Payment Gateway Driver.

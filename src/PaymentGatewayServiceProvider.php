@@ -2,20 +2,20 @@
 
 declare(strict_types=1);
 
-namespace Nejcc\PaymentGateway;
+namespace LaravelPlus\PaymentGateway;
 
 use App\Support\AdminNavigation;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\ServiceProvider;
-use Nejcc\PaymentGateway\Console\Commands\CleanupExpiredSubscriptionsCommand;
-use Nejcc\PaymentGateway\Console\Commands\InstallCommand;
-use Nejcc\PaymentGateway\Console\Commands\SendTrialEndingRemindersCommand;
-use Nejcc\PaymentGateway\Console\Commands\SyncPlansCommand;
-use Nejcc\PaymentGateway\Contracts\PaymentGatewayContract;
-use Nejcc\PaymentGateway\Events\PaymentWebhookReceived;
-use Nejcc\PaymentGateway\Listeners\HandlePayPalWebhook;
-use Nejcc\PaymentGateway\Listeners\HandleStripeWebhook;
-use Nejcc\PaymentGateway\Listeners\SendPaymentNotifications;
+use LaravelPlus\PaymentGateway\Console\Commands\CleanupExpiredSubscriptionsCommand;
+use LaravelPlus\PaymentGateway\Console\Commands\InstallCommand;
+use LaravelPlus\PaymentGateway\Console\Commands\SendTrialEndingRemindersCommand;
+use LaravelPlus\PaymentGateway\Console\Commands\SyncPlansCommand;
+use LaravelPlus\PaymentGateway\Contracts\PaymentGatewayContract;
+use LaravelPlus\PaymentGateway\Events\PaymentWebhookReceived;
+use LaravelPlus\PaymentGateway\Listeners\HandlePayPalWebhook;
+use LaravelPlus\PaymentGateway\Listeners\HandleStripeWebhook;
+use LaravelPlus\PaymentGateway\Listeners\SendPaymentNotifications;
 
 final class PaymentGatewayServiceProvider extends ServiceProvider
 {

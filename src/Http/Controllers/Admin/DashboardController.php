@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Nejcc\PaymentGateway\Http\Controllers\Admin;
+namespace LaravelPlus\PaymentGateway\Http\Controllers\Admin;
 
 use DateTimeInterface;
 use Illuminate\Http\JsonResponse;
@@ -11,11 +11,11 @@ use Illuminate\Routing\Controller;
 use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
 use Inertia\Response;
-use Nejcc\PaymentGateway\Enums\PaymentStatus;
-use Nejcc\PaymentGateway\Enums\SubscriptionStatus;
-use Nejcc\PaymentGateway\Models\PaymentCustomer;
-use Nejcc\PaymentGateway\Models\Subscription;
-use Nejcc\PaymentGateway\Models\Transaction;
+use LaravelPlus\PaymentGateway\Enums\PaymentStatus;
+use LaravelPlus\PaymentGateway\Enums\SubscriptionStatus;
+use LaravelPlus\PaymentGateway\Models\PaymentCustomer;
+use LaravelPlus\PaymentGateway\Models\Subscription;
+use LaravelPlus\PaymentGateway\Models\Transaction;
 use NumberFormatter;
 
 final class DashboardController extends Controller

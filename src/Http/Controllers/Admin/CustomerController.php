@@ -2,13 +2,13 @@
 
 declare(strict_types=1);
 
-namespace Nejcc\PaymentGateway\Http\Controllers\Admin;
+namespace LaravelPlus\PaymentGateway\Http\Controllers\Admin;
 
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
 use Inertia\Inertia;
 use Inertia\Response;
-use Nejcc\PaymentGateway\Models\PaymentCustomer;
+use LaravelPlus\PaymentGateway\Models\PaymentCustomer;
 
 final class CustomerController extends Controller
 {

@@ -11,10 +11,10 @@ echo "╚═══════════════════════�
 echo ""
 
 # Check if packages directory exists
-if [ ! -d "packages/nejcc/payment-gateway" ]; then
-    echo "❌ Error: Package not found at packages/nejcc/payment-gateway"
+if [ ! -d "packages/laravelplus/payment-gateway" ]; then
+    echo "❌ Error: Package not found at packages/laravelplus/payment-gateway"
     echo "   Please copy the package first:"
-    echo "   mkdir -p packages/nejcc && cp -r /path/to/payment-gateway packages/nejcc/"
+    echo "   mkdir -p packages/laravelplus && cp -r /path/to/payment-gateway packages/laravelplus/"
     exit 1
 fi
 
@@ -46,14 +46,14 @@ if (isset($composer['repositories'])) {
 if (!$repoExists) {
     $composer['repositories'][] = [
         'type' => 'path',
-        'url' => 'packages/nejcc/payment-gateway',
+        'url' => 'packages/laravelplus/payment-gateway',
         'options' => ['symlink' => true]
     ];
 }
 
 // Add require if not exists
-if (!isset($composer['require']['nejcc/payment-gateway'])) {
-    $composer['require']['nejcc/payment-gateway'] = '@dev';
+if (!isset($composer['require']['laravelplus/payment-gateway'])) {
+    $composer['require']['laravelplus/payment-gateway'] = '@dev';
 }
 
 file_put_contents($composerFile, json_encode($composer, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES) . "\n");
@@ -62,7 +62,7 @@ PHP
 
 echo ""
 echo "📥 Running composer update..."
-composer update nejcc/payment-gateway --no-interaction
+composer update laravelplus/payment-gateway --no-interaction
 
 echo ""
 echo "🚀 Running package installer..."

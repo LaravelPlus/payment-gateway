@@ -3,7 +3,7 @@
 declare(strict_types=1);
 
 use Illuminate\Support\Facades\Route;
-use Nejcc\PaymentGateway\Http\Controllers\WebhookController;
+use LaravelPlus\PaymentGateway\Http\Controllers\WebhookController;
 
 /*
 |--------------------------------------------------------------------------

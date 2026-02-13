@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace Nejcc\PaymentGateway\Contracts;
+namespace LaravelPlus\PaymentGateway\Contracts;
 
 use Illuminate\Http\Request;
-use Nejcc\PaymentGateway\DTOs\WebhookPayload;
+use LaravelPlus\PaymentGateway\DTOs\WebhookPayload;
 
 interface SupportsWebhooks
 {
