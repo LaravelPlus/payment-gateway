@@ -1,5 +1,5 @@
 {
-    "name": "nejcc/payment-gateway",
+    "name": "laraveplus/payment-gateway",
     "description": "A flexible multi-provider payment gateway for Laravel with support for Stripe, PayPal, Crypto, and more.",
     "keywords": ["laravel", "payment", "gateway", "stripe", "paypal", "crypto", "subscriptions"],
     "license": "MIT",
