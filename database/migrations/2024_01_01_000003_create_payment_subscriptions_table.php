@@ -69,7 +69,7 @@ return new class() extends Migration
             $table->index(['user_id', 'status']);
             $table->index(['driver', 'provider_id']);
             $table->index(['plan_id', 'status']);
-            $table->index('current_period_end');
+            $table->index(['current_period_end', 'status']);
         });
     }
 

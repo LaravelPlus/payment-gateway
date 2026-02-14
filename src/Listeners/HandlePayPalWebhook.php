@@ -89,7 +89,7 @@ final class HandlePayPalWebhook
             $invoice = Invoice::createFromTransaction($transaction);
             $this->pdfGenerator->generate($invoice);
 
-            event(new PaymentSucceeded($transaction->toPaymentResult()));
+            event(new PaymentSucceeded($transaction->toDto()));
         }
     }
 
@@ -109,11 +109,11 @@ final class HandlePayPalWebhook
 
             $transaction->update([
                 'status' => PaymentStatus::Failed->value,
-                'failure_reason' => $failureMessage,
+                'failure_message' => $failureMessage,
                 'provider_response' => $data,
             ]);
 
-            event(new PaymentFailed($transaction->toPaymentResult(), $failureMessage));
+            event(new PaymentFailed($transaction->toDto(), $failureMessage));
         }
     }
 
@@ -184,12 +184,16 @@ final class HandlePayPalWebhook
             $invoice = Invoice::createFromTransaction($transaction);
             $this->pdfGenerator->generate($invoice);
 
-            event(new PaymentSucceeded($transaction->toPaymentResult()));
+            event(new PaymentSucceeded($transaction->toDto()));
         }
     }
 
     private function handleSubscriptionCreated(array $data): void
     {
+        if (empty($data['id'])) {
+            return;
+        }
+
         $subscription = $this->syncSubscription($data);
 
         if ($subscription->wasRecentlyCreated) {
@@ -199,7 +203,12 @@ final class HandlePayPalWebhook
 
     private function handleSubscriptionActivated(array $data): void
     {
-        $subscription = Subscription::where('provider_id', $data['id'])
+        $subscriptionId = $data['id'] ?? null;
+        if (!$subscriptionId) {
+            return;
+        }
+
+        $subscription = Subscription::where('provider_id', $subscriptionId)
             ->where('driver', 'paypal')
             ->first();
 
@@ -213,12 +222,21 @@ final class HandlePayPalWebhook
 
     private function handleSubscriptionUpdated(array $data): void
     {
+        if (empty($data['id'])) {
+            return;
+        }
+
         $this->syncSubscription($data);
     }
 
     private function handleSubscriptionCancelled(array $data): void
     {
-        $subscription = Subscription::where('provider_id', $data['id'])
+        $subscriptionId = $data['id'] ?? null;
+        if (!$subscriptionId) {
+            return;
+        }
+
+        $subscription = Subscription::where('provider_id', $subscriptionId)
             ->where('driver', 'paypal')
             ->first();
 
@@ -236,7 +254,12 @@ final class HandlePayPalWebhook
 
     private function handleSubscriptionSuspended(array $data): void
     {
-        $subscription = Subscription::where('provider_id', $data['id'])
+        $subscriptionId = $data['id'] ?? null;
+        if (!$subscriptionId) {
+            return;
+        }
+
+        $subscription = Subscription::where('provider_id', $subscriptionId)
             ->where('driver', 'paypal')
             ->first();
 
@@ -250,7 +273,12 @@ final class HandlePayPalWebhook
 
     private function handleSubscriptionExpired(array $data): void
     {
-        $subscription = Subscription::where('provider_id', $data['id'])
+        $subscriptionId = $data['id'] ?? null;
+        if (!$subscriptionId) {
+            return;
+        }
+
+        $subscription = Subscription::where('provider_id', $subscriptionId)
             ->where('driver', 'paypal')
             ->first();
 
@@ -295,7 +323,7 @@ final class HandlePayPalWebhook
             $invoice = Invoice::createFromTransaction($transaction);
             $this->pdfGenerator->generate($invoice);
 
-            event(new PaymentSucceeded($transaction->toPaymentResult()));
+            event(new PaymentSucceeded($transaction->toDto()));
         }
     }
 
@@ -397,10 +425,10 @@ final class HandlePayPalWebhook
             return null;
         }
 
-        $userModel = config('payment-gateway.billable_model', 'App\\Models\\User');
+        $paymentCustomer = \LaravelPlus\PaymentGateway\Models\PaymentCustomer::where('provider_id', $payerId)
+            ->where('driver', 'paypal')
+            ->first();
 
-        return $userModel::whereHas('paymentCustomers', function ($query) use ($payerId): void {
-            $query->where('provider_id', $payerId)->where('driver', 'paypal');
-        })->first();
+        return $paymentCustomer?->user;
     }
 }

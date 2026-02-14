@@ -8,14 +8,20 @@ use DateTimeImmutable;
 use Exception;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
+use LaravelPlus\PaymentGateway\Contracts\SupportsCustomers;
 use LaravelPlus\PaymentGateway\Contracts\SupportsRefunds;
+use LaravelPlus\PaymentGateway\Contracts\SupportsSubscriptions;
 use LaravelPlus\PaymentGateway\Contracts\SupportsWebhooks;
 use LaravelPlus\PaymentGateway\DTOs\Customer;
 use LaravelPlus\PaymentGateway\DTOs\PaymentIntent;
+use LaravelPlus\PaymentGateway\DTOs\PaymentMethodData;
 use LaravelPlus\PaymentGateway\DTOs\PaymentResult;
 use LaravelPlus\PaymentGateway\DTOs\Refund;
+use LaravelPlus\PaymentGateway\DTOs\Subscription;
+use LaravelPlus\PaymentGateway\DTOs\SubscriptionPlan;
 use LaravelPlus\PaymentGateway\DTOs\WebhookPayload;
 use LaravelPlus\PaymentGateway\Enums\PaymentStatus;
+use LaravelPlus\PaymentGateway\Enums\SubscriptionStatus;
 use LaravelPlus\PaymentGateway\Exceptions\PaymentException;
 
 /**
@@ -24,7 +30,7 @@ use LaravelPlus\PaymentGateway\Exceptions\PaymentException;
  * Requires: paypal/paypal-checkout-sdk package
  * All amounts are in cents.
  */
-final class PayPalGateway extends AbstractPaymentGateway implements SupportsRefunds, SupportsWebhooks
+final class PayPalGateway extends AbstractPaymentGateway implements SupportsCustomers, SupportsRefunds, SupportsSubscriptions, SupportsWebhooks
 {
     public function getName(): string
     {
@@ -336,9 +342,13 @@ final class PayPalGateway extends AbstractPaymentGateway implements SupportsRefu
 
             $refund = $response->json();
 
+            // Extract capture ID from the "up" link (points to the original capture)
+            $captureLink = collect($refund['links'] ?? [])->firstWhere('rel', 'up');
+            $transactionId = $captureLink ? basename($captureLink['href']) : 'unknown';
+
             return new Refund(
                 id: $refund['id'],
-                transactionId: $refund['links'][0]['href'] ?? 'unknown', // PayPal doesn't include original transaction ID directly
+                transactionId: $transactionId,
                 status: mb_strtolower($refund['status']),
                 amount: (int) (((float) $refund['amount']['value']) * 100),
                 currency: mb_strtoupper($refund['amount']['currency_code']),
@@ -355,9 +365,394 @@ final class PayPalGateway extends AbstractPaymentGateway implements SupportsRefu
      */
     public function getRefundsForTransaction(string $transactionId): array
     {
-        // PayPal doesn't provide a direct API for this
-        // You would need to track refunds in your database
-        return [];
+        // Query local database for refunds since PayPal doesn't provide a direct API
+        $refunds = \LaravelPlus\PaymentGateway\Models\Refund::where('driver', 'paypal')
+            ->whereHas('transaction', fn ($q) => $q->where('provider_id', $transactionId))
+            ->get();
+
+        return $refunds->map(fn ($refund) => $refund->toDto())->all();
+    }
+
+    // ========================================
+    // SupportsCustomers
+    // ========================================
+
+    /**
+     * @param  array<string, mixed>  $metadata
+     */
+    public function createCustomer(string $email, ?string $name = null, array $metadata = []): Customer
+    {
+        // PayPal doesn't have a standalone customer creation API.
+        // Customers are created implicitly when they make payments.
+        // We return a local representation.
+        $id = 'paypal_'.Str::random(16);
+
+        $this->log('info', 'PayPal customer created locally', ['id' => $id, 'email' => $email]);
+
+        return new Customer(
+            id: $id,
+            email: $email,
+            name: $name,
+            metadata: $metadata,
+        );
+    }
+
+    public function getCustomer(string $customerId): ?Customer
+    {
+        // PayPal does not have a customer retrieval API.
+        // Look up locally stored customer data.
+        $paymentCustomer = \LaravelPlus\PaymentGateway\Models\PaymentCustomer::where('provider_id', $customerId)
+            ->where('driver', 'paypal')
+            ->first();
+
+        if (!$paymentCustomer) {
+            return null;
+        }
+
+        $user = $paymentCustomer->user;
+
+        return new Customer(
+            id: $customerId,
+            email: $user?->email,
+            name: $user?->name,
+        );
+    }
+
+    /**
+     * @param  array<string, mixed>  $data
+     */
+    public function updateCustomer(string $customerId, array $data): Customer
+    {
+        return new Customer(
+            id: $customerId,
+            email: $data['email'] ?? null,
+            name: $data['name'] ?? null,
+            metadata: $data['metadata'] ?? [],
+        );
+    }
+
+    public function deleteCustomer(string $customerId): bool
+    {
+        $this->log('info', 'PayPal customer deleted locally', ['id' => $customerId]);
+
+        return true;
+    }
+
+    public function attachPaymentMethod(string $customerId, string $paymentMethodId): PaymentMethodData
+    {
+        return new PaymentMethodData(
+            id: $paymentMethodId,
+            type: 'paypal',
+            driver: $this->getName(),
+            paypalEmail: $paymentMethodId,
+        );
+    }
+
+    public function detachPaymentMethod(string $paymentMethodId): bool
+    {
+        return true;
+    }
+
+    /**
+     * @return array<PaymentMethodData>
+     */
+    public function getPaymentMethods(string $customerId): array
+    {
+        $methods = \LaravelPlus\PaymentGateway\Models\PaymentMethod::where('payment_customer_id', $customerId)
+            ->where('driver', 'paypal')
+            ->get();
+
+        return $methods->map(fn ($m) => new PaymentMethodData(
+            id: $m->provider_id,
+            type: 'paypal',
+            driver: $this->getName(),
+            paypalEmail: $m->metadata['email'] ?? null,
+            isDefault: $m->is_default,
+        ))->all();
+    }
+
+    public function setDefaultPaymentMethod(string $customerId, string $paymentMethodId): bool
+    {
+        return true;
+    }
+
+    // ========================================
+    // SupportsSubscriptions
+    // ========================================
+
+    /**
+     * @param  array<string, mixed>  $options
+     */
+    public function createPlan(string $name, int $amount, string $currency, string $interval, array $options = []): SubscriptionPlan
+    {
+        try {
+            $token = $this->getAccessToken();
+            $amountDecimal = number_format($amount / 100, 2, '.', '');
+
+            // Create product first
+            $productResponse = \Illuminate\Support\Facades\Http::withToken($token)
+                ->post("{$this->getBaseUrl()}/v1/catalogs/products", [
+                    'name' => $name,
+                    'description' => $options['description'] ?? $name,
+                    'type' => 'SERVICE',
+                    'category' => $options['category'] ?? 'SOFTWARE',
+                ]);
+
+            if (!$productResponse->successful()) {
+                throw new PaymentException('Failed to create PayPal product: '.$productResponse->body());
+            }
+
+            $product = $productResponse->json();
+
+            // Create billing plan
+            $planResponse = \Illuminate\Support\Facades\Http::withToken($token)
+                ->post("{$this->getBaseUrl()}/v1/billing/plans", [
+                    'product_id' => $product['id'],
+                    'name' => $name,
+                    'description' => $options['description'] ?? $name,
+                    'billing_cycles' => [[
+                        'frequency' => [
+                            'interval_unit' => mb_strtoupper($interval),
+                            'interval_count' => $options['interval_count'] ?? 1,
+                        ],
+                        'tenure_type' => 'REGULAR',
+                        'sequence' => 1,
+                        'total_cycles' => 0,
+                        'pricing_scheme' => [
+                            'fixed_price' => [
+                                'value' => $amountDecimal,
+                                'currency_code' => mb_strtoupper($currency),
+                            ],
+                        ],
+                    ]],
+                    'payment_preferences' => [
+                        'auto_bill_outstanding' => true,
+                        'payment_failure_threshold' => $options['failure_threshold'] ?? 3,
+                    ],
+                ]);
+
+            if (!$planResponse->successful()) {
+                throw new PaymentException('Failed to create PayPal plan: '.$planResponse->body());
+            }
+
+            $plan = $planResponse->json();
+
+            $this->log('info', 'PayPal plan created', ['plan_id' => $plan['id'], 'product_id' => $product['id']]);
+
+            return new SubscriptionPlan(
+                id: $plan['id'],
+                productId: $product['id'],
+                name: $name,
+                amount: $amount,
+                currency: mb_strtoupper($currency),
+                interval: $interval,
+                intervalCount: $options['interval_count'] ?? 1,
+                driver: $this->getName(),
+                description: $options['description'] ?? null,
+                raw: $plan,
+            );
+        } catch (Exception $e) {
+            if ($e instanceof PaymentException) {
+                throw $e;
+            }
+            $this->throwException("Failed to create PayPal plan: {$e->getMessage()}", null, $e);
+        }
+    }
+
+    public function getPlan(string $planId): ?SubscriptionPlan
+    {
+        try {
+            $token = $this->getAccessToken();
+
+            $response = \Illuminate\Support\Facades\Http::withToken($token)
+                ->get("{$this->getBaseUrl()}/v1/billing/plans/{$planId}");
+
+            if (!$response->successful()) {
+                return null;
+            }
+
+            $plan = $response->json();
+            $billingCycle = collect($plan['billing_cycles'] ?? [])->firstWhere('tenure_type', 'REGULAR');
+            $pricing = $billingCycle['pricing_scheme']['fixed_price'] ?? [];
+
+            return new SubscriptionPlan(
+                id: $plan['id'],
+                productId: $plan['product_id'],
+                name: $plan['name'],
+                amount: (int) round(((float) ($pricing['value'] ?? 0)) * 100),
+                currency: mb_strtoupper($pricing['currency_code'] ?? 'USD'),
+                interval: mb_strtolower($billingCycle['frequency']['interval_unit'] ?? 'month'),
+                intervalCount: $billingCycle['frequency']['interval_count'] ?? 1,
+                driver: $this->getName(),
+                description: $plan['description'] ?? null,
+                isActive: ($plan['status'] ?? '') === 'ACTIVE',
+                raw: $plan,
+            );
+        } catch (Exception) {
+            return null;
+        }
+    }
+
+    /**
+     * @param  array<string, mixed>  $options
+     */
+    public function createSubscription(Customer $customer, string $planId, string $paymentMethodId, array $options = []): Subscription
+    {
+        try {
+            $token = $this->getAccessToken();
+
+            $params = [
+                'plan_id' => $planId,
+                'subscriber' => [
+                    'name' => ['given_name' => $customer->name ?? ''],
+                    'email_address' => $customer->email,
+                ],
+                'application_context' => [
+                    'return_url' => $options['return_url'] ?? config('app.url').'/payment/paypal/subscription/return',
+                    'cancel_url' => $options['cancel_url'] ?? config('app.url').'/payment/paypal/subscription/cancel',
+                    'user_action' => 'SUBSCRIBE_NOW',
+                ],
+            ];
+
+            if (!empty($options['start_time'])) {
+                $params['start_time'] = $options['start_time'];
+            }
+
+            $response = \Illuminate\Support\Facades\Http::withToken($token)
+                ->post("{$this->getBaseUrl()}/v1/billing/subscriptions", $params);
+
+            if (!$response->successful()) {
+                throw new PaymentException('Failed to create PayPal subscription: '.$response->body());
+            }
+
+            $sub = $response->json();
+
+            $this->log('info', 'PayPal subscription created', ['subscription_id' => $sub['id']]);
+
+            return new Subscription(
+                id: $sub['id'],
+                customerId: $customer->id ?? '',
+                planId: $planId,
+                status: $this->mapPayPalSubscriptionStatus($sub['status'] ?? 'APPROVAL_PENDING'),
+                amount: 0,
+                currency: 'USD',
+                interval: 'month',
+                driver: $this->getName(),
+                raw: $sub,
+            );
+        } catch (Exception $e) {
+            if ($e instanceof PaymentException) {
+                throw $e;
+            }
+            $this->throwException("Failed to create PayPal subscription: {$e->getMessage()}", null, $e);
+        }
+    }
+
+    public function getSubscription(string $subscriptionId): ?Subscription
+    {
+        try {
+            $token = $this->getAccessToken();
+
+            $response = \Illuminate\Support\Facades\Http::withToken($token)
+                ->get("{$this->getBaseUrl()}/v1/billing/subscriptions/{$subscriptionId}");
+
+            if (!$response->successful()) {
+                return null;
+            }
+
+            $sub = $response->json();
+            $billingInfo = $sub['billing_info'] ?? [];
+            $lastPayment = $billingInfo['last_payment']['amount'] ?? [];
+
+            return new Subscription(
+                id: $sub['id'],
+                customerId: $sub['subscriber']['payer_id'] ?? '',
+                planId: $sub['plan_id'],
+                status: $this->mapPayPalSubscriptionStatus($sub['status']),
+                amount: (int) round(((float) ($lastPayment['value'] ?? 0)) * 100),
+                currency: mb_strtoupper($lastPayment['currency_code'] ?? 'USD'),
+                interval: 'month',
+                driver: $this->getName(),
+                currentPeriodStart: isset($sub['start_time']) ? new DateTimeImmutable($sub['start_time']) : null,
+                currentPeriodEnd: isset($billingInfo['next_billing_time']) ? new DateTimeImmutable($billingInfo['next_billing_time']) : null,
+                cancelAtPeriodEnd: false,
+                raw: $sub,
+            );
+        } catch (Exception) {
+            return null;
+        }
+    }
+
+    public function cancelSubscription(string $subscriptionId, bool $immediately = false): bool
+    {
+        try {
+            $token = $this->getAccessToken();
+
+            $response = \Illuminate\Support\Facades\Http::withToken($token)
+                ->post("{$this->getBaseUrl()}/v1/billing/subscriptions/{$subscriptionId}/cancel", [
+                    'reason' => 'Canceled by user',
+                ]);
+
+            return $response->successful() || $response->status() === 204;
+        } catch (Exception) {
+            return false;
+        }
+    }
+
+    public function pauseSubscription(string $subscriptionId): bool
+    {
+        try {
+            $token = $this->getAccessToken();
+
+            $response = \Illuminate\Support\Facades\Http::withToken($token)
+                ->post("{$this->getBaseUrl()}/v1/billing/subscriptions/{$subscriptionId}/suspend", [
+                    'reason' => 'Paused by user',
+                ]);
+
+            return $response->successful() || $response->status() === 204;
+        } catch (Exception) {
+            return false;
+        }
+    }
+
+    public function resumeSubscription(string $subscriptionId): bool
+    {
+        try {
+            $token = $this->getAccessToken();
+
+            $response = \Illuminate\Support\Facades\Http::withToken($token)
+                ->post("{$this->getBaseUrl()}/v1/billing/subscriptions/{$subscriptionId}/activate", [
+                    'reason' => 'Resumed by user',
+                ]);
+
+            return $response->successful() || $response->status() === 204;
+        } catch (Exception) {
+            return false;
+        }
+    }
+
+    public function updateSubscription(string $subscriptionId, string $newPlanId): Subscription
+    {
+        try {
+            $token = $this->getAccessToken();
+
+            $response = \Illuminate\Support\Facades\Http::withToken($token)
+                ->post("{$this->getBaseUrl()}/v1/billing/subscriptions/{$subscriptionId}/revise", [
+                    'plan_id' => $newPlanId,
+                ]);
+
+            if (!$response->successful()) {
+                throw new PaymentException('Failed to update PayPal subscription: '.$response->body());
+            }
+
+            return $this->getSubscription($subscriptionId)
+                ?? throw new PaymentException('Failed to retrieve updated subscription');
+        } catch (Exception $e) {
+            if ($e instanceof PaymentException) {
+                throw $e;
+            }
+            $this->throwException("Failed to update PayPal subscription: {$e->getMessage()}", null, $e);
+        }
     }
 
     // ========================================
@@ -435,6 +830,18 @@ final class PayPalGateway extends AbstractPaymentGateway implements SupportsRefu
             'created', 'saved', 'payer_action_required' => PaymentStatus::Pending,
             'voided' => PaymentStatus::Canceled,
             default => PaymentStatus::Failed,
+        };
+    }
+
+    protected function mapPayPalSubscriptionStatus(string $status): SubscriptionStatus
+    {
+        return match ($status) {
+            'ACTIVE' => SubscriptionStatus::Active,
+            'APPROVAL_PENDING', 'APPROVED' => SubscriptionStatus::Incomplete,
+            'SUSPENDED' => SubscriptionStatus::Paused,
+            'CANCELLED' => SubscriptionStatus::Canceled,
+            'EXPIRED' => SubscriptionStatus::Expired,
+            default => SubscriptionStatus::Incomplete,
         };
     }
 }

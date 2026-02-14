@@ -45,6 +45,24 @@ final class WebhookController extends Controller
      */
     protected function handleWebhook(Request $request, string $driver): JsonResponse
     {
+        // Validate content type
+        $contentType = $request->header('Content-Type', '');
+        if (!str_contains($contentType, 'application/json')) {
+            return response()->json(['error' => 'Invalid content type'], 415);
+        }
+
+        // Validate request body size (max 1MB)
+        $maxSize = 1048576;
+        if ((int) $request->header('Content-Length', '0') > $maxSize) {
+            return response()->json(['error' => 'Payload too large'], 413);
+        }
+
+        // Validate body is valid JSON
+        $content = $request->getContent();
+        if (empty($content) || json_decode($content, true) === null) {
+            return response()->json(['error' => 'Invalid JSON payload'], 400);
+        }
+
         try {
             $gateway = Payment::driver($driver);
 

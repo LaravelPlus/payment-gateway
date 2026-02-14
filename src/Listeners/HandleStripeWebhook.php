@@ -87,7 +87,7 @@ final class HandleStripeWebhook
             // Generate PDF
             $this->pdfGenerator->generate($invoice);
 
-            event(new PaymentSucceeded($transaction->toPaymentResult()));
+            event(new PaymentSucceeded($transaction->toDto()));
         }
     }
 
@@ -104,11 +104,11 @@ final class HandleStripeWebhook
 
             $transaction->update([
                 'status' => PaymentStatus::Failed->value,
-                'failure_reason' => $failureMessage,
+                'failure_message' => $failureMessage,
                 'provider_response' => $paymentIntent,
             ]);
 
-            event(new PaymentFailed($transaction->toPaymentResult(), $failureMessage));
+            event(new PaymentFailed($transaction->toDto(), $failureMessage));
         }
     }
 
@@ -131,7 +131,7 @@ final class HandleStripeWebhook
         );
 
         if ($transaction->wasRecentlyCreated) {
-            event(new PaymentSucceeded($transaction->toPaymentResult()));
+            event(new PaymentSucceeded($transaction->toDto()));
         }
     }
 
@@ -146,7 +146,7 @@ final class HandleStripeWebhook
         if ($transaction) {
             $transaction->update([
                 'status' => PaymentStatus::Failed->value,
-                'failure_reason' => $charge['failure_message'] ?? 'Charge failed',
+                'failure_message' => $charge['failure_message'] ?? 'Charge failed',
             ]);
         }
     }
@@ -356,11 +356,11 @@ final class HandleStripeWebhook
             return null;
         }
 
-        $userModel = config('payment-gateway.billable_model', 'App\\Models\\User');
+        $paymentCustomer = \LaravelPlus\PaymentGateway\Models\PaymentCustomer::where('provider_id', $customerId)
+            ->where('driver', 'stripe')
+            ->first();
 
-        return $userModel::whereHas('paymentCustomers', function ($query) use ($customerId): void {
-            $query->where('provider_id', $customerId)->where('driver', 'stripe');
-        })->first();
+        return $paymentCustomer?->user;
     }
 
     /**

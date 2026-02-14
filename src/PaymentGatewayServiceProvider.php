@@ -13,9 +13,11 @@ use LaravelPlus\PaymentGateway\Console\Commands\SendTrialEndingRemindersCommand;
 use LaravelPlus\PaymentGateway\Console\Commands\SyncPlansCommand;
 use LaravelPlus\PaymentGateway\Contracts\PaymentGatewayContract;
 use LaravelPlus\PaymentGateway\Events\PaymentWebhookReceived;
+use LaravelPlus\PaymentGateway\Listeners\HandleCryptoWebhook;
 use LaravelPlus\PaymentGateway\Listeners\HandlePayPalWebhook;
 use LaravelPlus\PaymentGateway\Listeners\HandleStripeWebhook;
 use LaravelPlus\PaymentGateway\Listeners\SendPaymentNotifications;
+use Throwable;
 
 final class PaymentGatewayServiceProvider extends ServiceProvider
 {
@@ -28,6 +30,7 @@ final class PaymentGatewayServiceProvider extends ServiceProvider
         PaymentWebhookReceived::class => [
             HandleStripeWebhook::class,
             HandlePayPalWebhook::class,
+            HandleCryptoWebhook::class,
         ],
     ];
 
@@ -166,7 +169,7 @@ final class PaymentGatewayServiceProvider extends ServiceProvider
                 if ($dbValue !== null) {
                     return in_array($dbValue, ['1', 'true', true, 1], true);
                 }
-            } catch (\Throwable) {
+            } catch (Throwable) {
                 // Table may not exist yet during migrations
             }
         }

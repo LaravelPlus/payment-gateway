@@ -155,8 +155,15 @@ final class BankTransferGateway extends AbstractPaymentGateway
 
     public function getPayment(string $transactionId): ?PaymentResult
     {
-        // In a real implementation, you would fetch from database
-        return null;
+        $transaction = \LaravelPlus\PaymentGateway\Models\Transaction::where('provider_id', $transactionId)
+            ->where('driver', 'bank_transfer')
+            ->first();
+
+        if (!$transaction) {
+            return null;
+        }
+
+        return $transaction->toDto();
     }
 
     public function cancel(string $transactionId): bool
