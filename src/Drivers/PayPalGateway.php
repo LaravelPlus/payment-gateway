@@ -106,15 +106,13 @@ final class PayPalGateway extends AbstractPaymentGateway implements SupportsCust
     ): PaymentIntent {
         try {
             $token = $this->getAccessToken();
-            $amountDecimal = number_format($amount / 100, 2, '.', '');
-
             $response = \Illuminate\Support\Facades\Http::withToken($token)
                 ->post("{$this->getBaseUrl()}/v2/checkout/orders", [
                     'intent' => 'CAPTURE',
                     'purchase_units' => [[
                         'amount' => [
                             'currency_code' => mb_strtoupper($currency),
-                            'value' => $amountDecimal,
+                            'value' => $this->toDecimalString($amount),
                         ],
                         'custom_id' => $metadata['order_id'] ?? Str::random(16),
                     ]],
@@ -293,7 +291,6 @@ final class PayPalGateway extends AbstractPaymentGateway implements SupportsCust
         // Similar to full refund but with amount specified
         try {
             $token = $this->getAccessToken();
-            $amountDecimal = number_format($amount / 100, 2, '.', '');
 
             $orderResponse = \Illuminate\Support\Facades\Http::withToken($token)
                 ->get("{$this->getBaseUrl()}/v2/checkout/orders/{$transactionId}");
@@ -305,7 +302,7 @@ final class PayPalGateway extends AbstractPaymentGateway implements SupportsCust
             $response = \Illuminate\Support\Facades\Http::withToken($token)
                 ->post("{$this->getBaseUrl()}/v2/payments/captures/{$captureId}/refund", [
                     'amount' => [
-                        'value' => $amountDecimal,
+                        'value' => $this->toDecimalString($amount),
                         'currency_code' => $currency,
                     ],
                     'note_to_payer' => $reason,
@@ -487,7 +484,6 @@ final class PayPalGateway extends AbstractPaymentGateway implements SupportsCust
     {
         try {
             $token = $this->getAccessToken();
-            $amountDecimal = number_format($amount / 100, 2, '.', '');
 
             // Create product first
             $productResponse = \Illuminate\Support\Facades\Http::withToken($token)
@@ -520,7 +516,7 @@ final class PayPalGateway extends AbstractPaymentGateway implements SupportsCust
                         'total_cycles' => 0,
                         'pricing_scheme' => [
                             'fixed_price' => [
-                                'value' => $amountDecimal,
+                                'value' => $this->toDecimalString($amount),
                                 'currency_code' => mb_strtoupper($currency),
                             ],
                         ],

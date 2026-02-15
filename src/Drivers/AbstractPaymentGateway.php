@@ -112,6 +112,16 @@ abstract class AbstractPaymentGateway implements PaymentGatewayContract
     }
 
     /**
+     * Convert cents to a decimal string for API requests.
+     *
+     * Example: 1050 => "10.50"
+     */
+    protected function toDecimalString(int $amountInCents): string
+    {
+        return number_format($amountInCents / 100, 2, '.', '');
+    }
+
+    /**
      * Create a payment intent/session.
      *
      * @param  array<string, mixed>  $metadata
