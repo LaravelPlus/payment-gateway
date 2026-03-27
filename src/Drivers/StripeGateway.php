@@ -6,10 +6,12 @@ namespace LaravelPlus\PaymentGateway\Drivers;
 
 use DateTimeImmutable;
 use Illuminate\Http\Request;
+use LaravelPlus\PaymentGateway\Contracts\SupportsCheckoutSessions;
 use LaravelPlus\PaymentGateway\Contracts\SupportsCustomers;
 use LaravelPlus\PaymentGateway\Contracts\SupportsRefunds;
 use LaravelPlus\PaymentGateway\Contracts\SupportsSubscriptions;
 use LaravelPlus\PaymentGateway\Contracts\SupportsWebhooks;
+use LaravelPlus\PaymentGateway\DTOs\CheckoutSession;
 use LaravelPlus\PaymentGateway\DTOs\Customer;
 use LaravelPlus\PaymentGateway\DTOs\PaymentIntent;
 use LaravelPlus\PaymentGateway\DTOs\PaymentMethodData;
@@ -28,7 +30,7 @@ use LaravelPlus\PaymentGateway\Exceptions\PaymentException;
  * Requires: stripe/stripe-php package
  * All amounts are in cents.
  */
-final class StripeGateway extends AbstractPaymentGateway implements SupportsCustomers, SupportsRefunds, SupportsSubscriptions, SupportsWebhooks
+final class StripeGateway extends AbstractPaymentGateway implements SupportsCheckoutSessions, SupportsCustomers, SupportsRefunds, SupportsSubscriptions, SupportsWebhooks
 {
     private ?\Stripe\StripeClient $client = null;
 
@@ -725,5 +727,66 @@ final class StripeGateway extends AbstractPaymentGateway implements SupportsCust
             'incomplete_expired' => SubscriptionStatus::IncompleteExpired,
             default => SubscriptionStatus::Incomplete,
         };
+    }
+
+    /**
+     * Create a Stripe Checkout Session for a subscription.
+     *
+     * @param  array<string, mixed>  $options
+     */
+    public function createCheckoutSession(
+        Customer $customer,
+        string $priceId,
+        string $successUrl,
+        string $cancelUrl,
+        array $options = []
+    ): CheckoutSession {
+        $params = [
+            'mode' => 'subscription',
+            'customer' => $customer->id,
+            'line_items' => [
+                [
+                    'price' => $priceId,
+                    'quantity' => 1,
+                ],
+            ],
+            'success_url' => $successUrl,
+            'cancel_url' => $cancelUrl,
+        ];
+
+        if (isset($options['trial_period_days']) && $options['trial_period_days'] > 0) {
+            $params['subscription_data'] = [
+                'trial_period_days' => $options['trial_period_days'],
+            ];
+        }
+
+        if (isset($options['metadata'])) {
+            $params['metadata'] = $options['metadata'];
+        }
+
+        $session = $this->getClient()->checkout->sessions->create($params);
+
+        return new CheckoutSession(
+            id: $session->id,
+            url: $session->url,
+            status: $session->status ?? 'open',
+            driver: $this->getName(),
+            customerId: $session->customer,
+            subscriptionId: $session->subscription,
+            raw: $session->toArray(),
+        );
+    }
+
+    /**
+     * Create a Stripe Billing Portal session.
+     */
+    public function createBillingPortalSession(string $customerId, string $returnUrl): string
+    {
+        $session = $this->getClient()->billingPortal->sessions->create([
+            'customer' => $customerId,
+            'return_url' => $returnUrl,
+        ]);
+
+        return $session->url;
     }
 }
