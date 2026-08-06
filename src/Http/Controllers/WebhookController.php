@@ -8,6 +8,7 @@ use Exception;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
+use Illuminate\Support\Facades\DB;
 use LaravelPlus\PaymentGateway\Contracts\SupportsWebhooks;
 use LaravelPlus\PaymentGateway\Events\PaymentWebhookReceived;
 use LaravelPlus\PaymentGateway\Events\WebhookHandled;
@@ -77,6 +78,16 @@ final class WebhookController extends Controller
 
             // Parse webhook
             $payload = $gateway->parseWebhook($request);
+
+            // Providers redeliver on any non-2xx, on timeout, and sometimes
+            // unprompted. Claim the event id before dispatching so a replay can't
+            // re-run fulfilment. insertOrIgnore is atomic on the primary key, so
+            // two concurrent deliveries can't both pass this.
+            $eventKey = $driver.':'.$payload->id;
+
+            if (DB::table('payment_webhook_events')->insertOrIgnore(['id' => $eventKey, 'created_at' => now()]) === 0) {
+                return response()->json(['handled' => true, 'duplicate' => true]);
+            }
 
             // Dispatch event for listeners
             event(new PaymentWebhookReceived($payload));
