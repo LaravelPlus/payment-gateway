@@ -142,7 +142,7 @@ final class DashboardController extends Controller
             ->take(10)
             ->get()
             ->map(fn (Transaction $t) => [
-                'id' => $t->id,
+                'uuid' => $t->uuid,
                 'uuid' => $t->uuid,
                 'amount' => $t->amount,
                 'formatted_amount' => $t->getFormattedAmount(),
@@ -151,7 +151,7 @@ final class DashboardController extends Controller
                 'driver' => $t->driver,
                 'description' => $t->description,
                 'user' => $t->user ? [
-                    'id' => $t->user->id,
+                    'uuid' => $t->user->uuid,
                     'name' => $t->user->name,
                     'email' => $t->user->email,
                 ] : null,

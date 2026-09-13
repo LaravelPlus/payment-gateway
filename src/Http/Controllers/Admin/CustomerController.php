@@ -41,7 +41,7 @@ final class CustomerController extends Controller
 
         return Inertia::render('admin/payments/customers/Index', [
             'customers' => $customers->through(fn (PaymentCustomer $c) => [
-                'id' => $c->id,
+                'uuid' => $c->uuid,
                 'email' => $c->email,
                 'name' => $c->name,
                 'phone' => $c->phone,
@@ -51,7 +51,7 @@ final class CustomerController extends Controller
                 'transactions_count' => $c->transactions_count,
                 'subscriptions_count' => $c->subscriptions_count,
                 'user' => $c->user ? [
-                    'id' => $c->user->id,
+                    'uuid' => $c->user->uuid,
                     'name' => $c->user->name,
                     'email' => $c->user->email,
                 ] : null,
@@ -72,7 +72,7 @@ final class CustomerController extends Controller
 
         return Inertia::render('admin/payments/customers/Show', [
             'customer' => [
-                'id' => $customer->id,
+                'uuid' => $customer->uuid,
                 'email' => $customer->email,
                 'name' => $customer->name,
                 'phone' => $customer->phone,
@@ -92,7 +92,7 @@ final class CustomerController extends Controller
                 'total_spent' => $totalSpent,
                 'formatted_total_spent' => $this->formatMoney($totalSpent, config('payment-gateway.currency', 'USD')),
                 'user' => $customer->user ? [
-                    'id' => $customer->user->id,
+                    'uuid' => $customer->user->uuid,
                     'name' => $customer->user->name,
                     'email' => $customer->user->email,
                 ] : null,
@@ -101,7 +101,7 @@ final class CustomerController extends Controller
                     ->take(10)
                     ->get()
                     ->map(fn ($t) => [
-                        'id' => $t->id,
+                        'uuid' => $t->uuid,
                         'uuid' => $t->uuid,
                         'amount' => $t->amount,
                         'formatted_amount' => $t->getFormattedAmount(),
@@ -110,19 +110,19 @@ final class CustomerController extends Controller
                         'created_at' => $t->created_at->toISOString(),
                     ]),
                 'subscriptions' => $customer->subscriptions->map(fn ($s) => [
-                    'id' => $s->id,
+                    'uuid' => $s->uuid,
                     'uuid' => $s->uuid,
                     'status' => $s->status,
                     'billing_description' => $s->getBillingDescription(),
                     'plan' => $s->plan ? [
-                        'id' => $s->plan->id,
+                        'uuid' => $s->plan->uuid,
                         'name' => $s->plan->name,
                     ] : null,
                     'current_period_end' => $s->current_period_end?->toISOString(),
                     'created_at' => $s->created_at->toISOString(),
                 ]),
                 'payment_methods' => $customer->paymentMethods->map(fn ($pm) => [
-                    'id' => $pm->id,
+                    'uuid' => $pm->uuid,
                     'type' => $pm->type,
                     'display_name' => $pm->getDisplayName(),
                     'is_default' => $pm->is_default,

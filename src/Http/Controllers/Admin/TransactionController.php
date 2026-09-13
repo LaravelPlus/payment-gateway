@@ -55,7 +55,7 @@ final class TransactionController extends Controller
 
         return Inertia::render('admin/payments/transactions/Index', [
             'transactions' => $transactions->through(fn (Transaction $t) => [
-                'id' => $t->id,
+                'uuid' => $t->uuid,
                 'uuid' => $t->uuid,
                 'provider_id' => $t->provider_id,
                 'amount' => $t->amount,
@@ -65,7 +65,7 @@ final class TransactionController extends Controller
                 'driver' => $t->driver,
                 'description' => $t->description,
                 'user' => $t->user ? [
-                    'id' => $t->user->id,
+                    'uuid' => $t->user->uuid,
                     'name' => $t->user->name,
                     'email' => $t->user->email,
                 ] : null,
@@ -84,7 +84,7 @@ final class TransactionController extends Controller
 
         return Inertia::render('admin/payments/transactions/Show', [
             'transaction' => [
-                'id' => $transaction->id,
+                'uuid' => $transaction->uuid,
                 'uuid' => $transaction->uuid,
                 'provider_id' => $transaction->provider_id,
                 'amount' => $transaction->amount,
@@ -102,17 +102,17 @@ final class TransactionController extends Controller
                 'metadata' => $transaction->metadata,
                 'provider_response' => $transaction->provider_response,
                 'user' => $transaction->user ? [
-                    'id' => $transaction->user->id,
+                    'uuid' => $transaction->user->uuid,
                     'name' => $transaction->user->name,
                     'email' => $transaction->user->email,
                 ] : null,
                 'customer' => $transaction->paymentCustomer ? [
-                    'id' => $transaction->paymentCustomer->id,
+                    'uuid' => $transaction->paymentCustomer->uuid,
                     'email' => $transaction->paymentCustomer->email,
                     'name' => $transaction->paymentCustomer->name,
                 ] : null,
                 'refunds' => $transaction->refunds->map(fn ($r) => [
-                    'id' => $r->id,
+                    'uuid' => $r->uuid,
                     'provider_id' => $r->provider_id,
                     'amount' => $r->amount,
                     'formatted_amount' => $r->getFormattedAmount(),

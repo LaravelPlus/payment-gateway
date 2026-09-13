@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace LaravelPlus\PaymentGateway\Models;
 
+use LaravelPlus\PaymentGateway\Concerns\HasUuid;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -21,6 +22,8 @@ use NumberFormatter;
  */
 final class Invoice extends Model
 {
+    use HasUuid;
+
     /** @use HasFactory<InvoiceFactory> */
     use HasFactory;
 

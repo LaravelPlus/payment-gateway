@@ -50,7 +50,7 @@ final class SubscriptionController extends Controller
 
         return Inertia::render('admin/payments/subscriptions/Index', [
             'subscriptions' => $subscriptions->through(fn (Subscription $s) => [
-                'id' => $s->id,
+                'uuid' => $s->uuid,
                 'uuid' => $s->uuid,
                 'provider_id' => $s->provider_id,
                 'amount' => $s->amount,
@@ -62,12 +62,12 @@ final class SubscriptionController extends Controller
                 'interval_count' => $s->interval_count,
                 'billing_description' => $s->getBillingDescription(),
                 'plan' => $s->plan ? [
-                    'id' => $s->plan->id,
+                    'uuid' => $s->plan->uuid,
                     'name' => $s->plan->name,
                     'slug' => $s->plan->slug,
                 ] : null,
                 'user' => $s->user ? [
-                    'id' => $s->user->id,
+                    'uuid' => $s->user->uuid,
                     'name' => $s->user->name,
                     'email' => $s->user->email,
                 ] : null,
@@ -89,7 +89,7 @@ final class SubscriptionController extends Controller
 
         return Inertia::render('admin/payments/subscriptions/Show', [
             'subscription' => [
-                'id' => $subscription->id,
+                'uuid' => $subscription->uuid,
                 'uuid' => $subscription->uuid,
                 'provider_id' => $subscription->provider_id,
                 'provider_plan_id' => $subscription->provider_plan_id,
@@ -120,19 +120,19 @@ final class SubscriptionController extends Controller
                 'metadata' => $subscription->metadata,
                 'provider_response' => $subscription->provider_response,
                 'plan' => $subscription->plan ? [
-                    'id' => $subscription->plan->id,
+                    'uuid' => $subscription->plan->uuid,
                     'name' => $subscription->plan->name,
                     'slug' => $subscription->plan->slug,
                     'amount' => $subscription->plan->amount,
                     'formatted_price' => $subscription->plan->formatted_price,
                 ] : null,
                 'user' => $subscription->user ? [
-                    'id' => $subscription->user->id,
+                    'uuid' => $subscription->user->uuid,
                     'name' => $subscription->user->name,
                     'email' => $subscription->user->email,
                 ] : null,
                 'customer' => $subscription->paymentCustomer ? [
-                    'id' => $subscription->paymentCustomer->id,
+                    'uuid' => $subscription->paymentCustomer->uuid,
                     'email' => $subscription->paymentCustomer->email,
                     'name' => $subscription->paymentCustomer->name,
                 ] : null,

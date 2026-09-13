@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace LaravelPlus\PaymentGateway\Models;
 
+use LaravelPlus\PaymentGateway\Concerns\HasUuid;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -12,6 +13,8 @@ use LaravelPlus\PaymentGateway\Database\Factories\PaymentMethodFactory;
 
 final class PaymentMethod extends Model
 {
+    use HasUuid;
+
     /** @use HasFactory<PaymentMethodFactory> */
     use HasFactory;
 

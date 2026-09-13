@@ -45,7 +45,7 @@ final class PlanController extends Controller
 
         return Inertia::render('admin/payments/plans/Index', [
             'plans' => $plans->through(fn (Plan $p) => [
-                'id' => $p->id,
+                'uuid' => $p->uuid,
                 'uuid' => $p->uuid,
                 'name' => $p->name,
                 'slug' => $p->slug,
@@ -100,7 +100,7 @@ final class PlanController extends Controller
     {
         return Inertia::render('admin/payments/plans/Edit', [
             'plan' => [
-                'id' => $plan->id,
+                'uuid' => $plan->uuid,
                 'uuid' => $plan->uuid,
                 'name' => $plan->name,
                 'slug' => $plan->slug,

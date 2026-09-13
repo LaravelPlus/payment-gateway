@@ -64,7 +64,7 @@ final class InvoiceController extends Controller
 
         return Inertia::render('admin/payments/invoices/Index', [
             'invoices' => $invoices->through(fn (Invoice $i) => [
-                'id' => $i->id,
+                'uuid' => $i->uuid,
                 'uuid' => $i->uuid,
                 'number' => $i->number,
                 'status' => $i->status,
@@ -81,7 +81,7 @@ final class InvoiceController extends Controller
                 'is_overdue' => $i->isOverdue(),
                 'has_pdf' => $i->hasPdf(),
                 'user' => $i->user ? [
-                    'id' => $i->user->id,
+                    'uuid' => $i->user->uuid,
                     'name' => $i->user->name,
                     'email' => $i->user->email,
                 ] : null,
@@ -105,7 +105,7 @@ final class InvoiceController extends Controller
 
         return Inertia::render('admin/payments/invoices/Show', [
             'invoice' => [
-                'id' => $invoice->id,
+                'uuid' => $invoice->uuid,
                 'uuid' => $invoice->uuid,
                 'number' => $invoice->number,
                 'status' => $invoice->status,
@@ -156,17 +156,17 @@ final class InvoiceController extends Controller
                 'pdf_generated_at' => $invoice->pdf_generated_at?->toISOString(),
                 'metadata' => $invoice->metadata,
                 'user' => $invoice->user ? [
-                    'id' => $invoice->user->id,
+                    'uuid' => $invoice->user->uuid,
                     'name' => $invoice->user->name,
                     'email' => $invoice->user->email,
                 ] : null,
                 'transaction' => $invoice->transaction ? [
-                    'id' => $invoice->transaction->id,
+                    'uuid' => $invoice->transaction->uuid,
                     'uuid' => $invoice->transaction->uuid,
                     'status' => $invoice->transaction->status,
                 ] : null,
                 'subscription' => $invoice->subscription ? [
-                    'id' => $invoice->subscription->id,
+                    'uuid' => $invoice->subscription->uuid,
                     'uuid' => $invoice->subscription->uuid,
                     'status' => $invoice->subscription->status,
                 ] : null,

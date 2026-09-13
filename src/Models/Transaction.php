@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace LaravelPlus\PaymentGateway\Models;
 
+use LaravelPlus\PaymentGateway\Concerns\HasUuid;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -17,6 +18,8 @@ use NumberFormatter;
 
 final class Transaction extends Model
 {
+    use HasUuid;
+
     /** @use HasFactory<TransactionFactory> */
     use HasFactory;
 
