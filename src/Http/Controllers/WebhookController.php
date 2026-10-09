@@ -80,20 +80,28 @@ final class WebhookController extends Controller
             $payload = $gateway->parseWebhook($request);
 
             // Providers redeliver on any non-2xx, on timeout, and sometimes
-            // unprompted. Claim the event id before dispatching so a replay can't
-            // re-run fulfilment. insertOrIgnore is atomic on the primary key, so
-            // two concurrent deliveries can't both pass this.
+            // unprompted. Claim the event id so a replay can't re-run fulfilment.
+            // insertOrIgnore is atomic on the primary key, so two concurrent
+            // deliveries can't both pass. The claim shares a transaction with the
+            // handling: if handling throws, the claim rolls back and the provider's
+            // retry is processed instead of being dropped as a duplicate.
             $eventKey = $driver.':'.$payload->id;
 
-            if (DB::table('payment_webhook_events')->insertOrIgnore(['id' => $eventKey, 'created_at' => now()]) === 0) {
+            $result = DB::transaction(function () use ($eventKey, $payload, $gateway): ?array {
+                if (DB::table('payment_webhook_events')->insertOrIgnore(['id' => $eventKey, 'created_at' => now()]) === 0) {
+                    return null;
+                }
+
+                // Dispatch event for listeners
+                event(new PaymentWebhookReceived($payload));
+
+                // Handle webhook
+                return $gateway->handleWebhook($payload);
+            });
+
+            if ($result === null) {
                 return response()->json(['handled' => true, 'duplicate' => true]);
             }
-
-            // Dispatch event for listeners
-            event(new PaymentWebhookReceived($payload));
-
-            // Handle webhook
-            $result = $gateway->handleWebhook($payload);
 
             // Dispatch success event
             event(new WebhookHandled($payload, $result));
