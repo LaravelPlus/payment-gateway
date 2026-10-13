@@ -647,7 +647,10 @@ final class StripeGateway extends AbstractPaymentGateway implements SupportsChec
         $signature = $request->header('Stripe-Signature');
         $secret = $this->getWebhookSecret();
 
-        if ($signature === null || $secret === null) {
+        // empty(), not null: `STRIPE_WEBHOOK_SECRET=` arrives as "". An HMAC
+        // keyed with "" is one anyone can compute, and stripe-php < 22 accepts
+        // it, so an unset secret must fail closed here, not in the library.
+        if (empty($signature) || empty($secret)) {
             return false;
         }
 

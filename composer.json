@@ -16,8 +16,9 @@
         "illuminate/http": "^11.0|^12.0|^13.0"
     },
     "require-dev": {
-        "orchestra/testbench": "^9.0",
-        "phpunit/phpunit": "^11.0"
+        "orchestra/testbench": "^11.0",
+        "phpunit/phpunit": "^12.0",
+        "stripe/stripe-php": "^20.0"
     },
     "suggest": {
         "stripe/stripe-php": "Required for Stripe gateway (^13.0|^14.0|^15.0)",
