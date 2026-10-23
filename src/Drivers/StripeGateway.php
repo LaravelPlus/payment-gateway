@@ -366,10 +366,7 @@ final class StripeGateway extends AbstractPaymentGateway implements SupportsChec
     public function refund(string $transactionId, ?string $reason = null): Refund
     {
         try {
-            $refund = $this->getClient()->refunds->create([
-                'payment_intent' => $transactionId,
-                'reason' => $reason ?? 'requested_by_customer',
-            ]);
+            $refund = $this->getClient()->refunds->create($this->refundParams($transactionId, null, $reason));
 
             $this->log('info', 'Refund created', ['refund_id' => $refund->id, 'transaction_id' => $transactionId]);
 
@@ -388,14 +385,37 @@ final class StripeGateway extends AbstractPaymentGateway implements SupportsChec
         }
     }
 
+    /**
+     * Webhook-created transactions store the charge id (ch_), API-created ones the
+     * payment intent id (pi_). Stripe's `reason` only accepts three enum values;
+     * anything else (free text from the admin) goes to metadata.
+     *
+     * @return array<string, mixed>
+     */
+    private function refundParams(string $transactionId, ?int $amount, ?string $reason): array
+    {
+        $params = [str_starts_with($transactionId, 'ch_') || str_starts_with($transactionId, 'py_') ? 'charge' : 'payment_intent' => $transactionId];
+
+        if ($amount !== null) {
+            $params['amount'] = $amount;
+        }
+
+        if (in_array($reason, ['duplicate', 'fraudulent', 'requested_by_customer'], true)) {
+            $params['reason'] = $reason;
+        } else {
+            $params['reason'] = 'requested_by_customer';
+            if ($reason !== null && $reason !== '') {
+                $params['metadata'] = ['note' => $reason];
+            }
+        }
+
+        return $params;
+    }
+
     public function partialRefund(string $transactionId, int $amount, ?string $reason = null): Refund
     {
         try {
-            $refund = $this->getClient()->refunds->create([
-                'payment_intent' => $transactionId,
-                'amount' => $amount,
-                'reason' => $reason ?? 'requested_by_customer',
-            ]);
+            $refund = $this->getClient()->refunds->create($this->refundParams($transactionId, $amount, $reason));
 
             $this->log('info', 'Partial refund created', ['refund_id' => $refund->id, 'amount' => $amount]);
 

@@ -53,7 +53,7 @@ final class PayPalGateway extends AbstractPaymentGateway implements SupportsCust
      */
     public function getSupportedCurrencies(): array
     {
-        return ['USD', 'EUR', 'GBP', 'CAD', 'AUD', 'JPY', 'CHF', 'NOK', 'SEK', 'DKK', 'PLN', 'CZK', 'HUF'];
+        return ['USD', 'EUR', 'GBP', 'CAD', 'AUD', 'JPY', 'CHF', 'NOK', 'SEK', 'DKK', 'PLN', 'CZK'];
     }
 
     /**
@@ -112,7 +112,7 @@ final class PayPalGateway extends AbstractPaymentGateway implements SupportsCust
                     'purchase_units' => [[
                         'amount' => [
                             'currency_code' => mb_strtoupper($currency),
-                            'value' => $this->toDecimalString($amount),
+                            'value' => $this->toDecimalString($amount, $currency),
                         ],
                         'custom_id' => $metadata['order_id'] ?? Str::random(16),
                     ]],
@@ -214,7 +214,7 @@ final class PayPalGateway extends AbstractPaymentGateway implements SupportsCust
             return new PaymentResult(
                 transactionId: $order['id'],
                 status: $this->mapPayPalStatus(mb_strtolower($order['status'])),
-                amount: (int) (((float) ($amount['value'] ?? 0)) * 100),
+                amount: \LaravelPlus\PaymentGateway\Support\Money::toMinor($amount["value"] ?? 0, $amount["currency_code"] ?? "USD"),
                 currency: mb_strtoupper($amount['currency_code'] ?? 'USD'),
                 driver: $this->getName(),
                 raw: $order,
@@ -272,7 +272,7 @@ final class PayPalGateway extends AbstractPaymentGateway implements SupportsCust
                 id: $refund['id'],
                 transactionId: $transactionId,
                 status: mb_strtolower($refund['status']),
-                amount: (int) (((float) $refund['amount']['value']) * 100),
+                amount: \LaravelPlus\PaymentGateway\Support\Money::toMinor($refund["amount"]["value"], $refund["amount"]["currency_code"]),
                 currency: mb_strtoupper($refund['amount']['currency_code']),
                 driver: $this->getName(),
                 reason: $reason,
@@ -302,7 +302,7 @@ final class PayPalGateway extends AbstractPaymentGateway implements SupportsCust
             $response = \Illuminate\Support\Facades\Http::withToken($token)
                 ->post("{$this->getBaseUrl()}/v2/payments/captures/{$captureId}/refund", [
                     'amount' => [
-                        'value' => $this->toDecimalString($amount),
+                        'value' => $this->toDecimalString($amount, $currency),
                         'currency_code' => $currency,
                     ],
                     'note_to_payer' => $reason,
@@ -347,7 +347,7 @@ final class PayPalGateway extends AbstractPaymentGateway implements SupportsCust
                 id: $refund['id'],
                 transactionId: $transactionId,
                 status: mb_strtolower($refund['status']),
-                amount: (int) (((float) $refund['amount']['value']) * 100),
+                amount: \LaravelPlus\PaymentGateway\Support\Money::toMinor($refund["amount"]["value"], $refund["amount"]["currency_code"]),
                 currency: mb_strtoupper($refund['amount']['currency_code']),
                 driver: $this->getName(),
                 raw: $refund,
@@ -398,8 +398,7 @@ final class PayPalGateway extends AbstractPaymentGateway implements SupportsCust
     {
         // PayPal does not have a customer retrieval API.
         // Look up locally stored customer data.
-        $paymentCustomer = \LaravelPlus\PaymentGateway\Models\PaymentCustomer::where('provider_id', $customerId)
-            ->where('driver', 'paypal')
+        $paymentCustomer = \LaravelPlus\PaymentGateway\Models\PaymentCustomer::where('paypal_id', $customerId)
             ->first();
 
         if (!$paymentCustomer) {
@@ -516,7 +515,7 @@ final class PayPalGateway extends AbstractPaymentGateway implements SupportsCust
                         'total_cycles' => 0,
                         'pricing_scheme' => [
                             'fixed_price' => [
-                                'value' => $this->toDecimalString($amount),
+                                'value' => $this->toDecimalString($amount, $currency),
                                 'currency_code' => mb_strtoupper($currency),
                             ],
                         ],
@@ -575,7 +574,7 @@ final class PayPalGateway extends AbstractPaymentGateway implements SupportsCust
                 id: $plan['id'],
                 productId: $plan['product_id'],
                 name: $plan['name'],
-                amount: (int) round(((float) ($pricing['value'] ?? 0)) * 100),
+                amount: \LaravelPlus\PaymentGateway\Support\Money::toMinor($pricing["value"] ?? 0, $pricing["currency_code"] ?? "USD"),
                 currency: mb_strtoupper($pricing['currency_code'] ?? 'USD'),
                 interval: mb_strtolower($billingCycle['frequency']['interval_unit'] ?? 'month'),
                 intervalCount: $billingCycle['frequency']['interval_count'] ?? 1,
@@ -665,7 +664,7 @@ final class PayPalGateway extends AbstractPaymentGateway implements SupportsCust
                 customerId: $sub['subscriber']['payer_id'] ?? '',
                 planId: $sub['plan_id'],
                 status: $this->mapPayPalSubscriptionStatus($sub['status']),
-                amount: (int) round(((float) ($lastPayment['value'] ?? 0)) * 100),
+                amount: \LaravelPlus\PaymentGateway\Support\Money::toMinor($lastPayment["value"] ?? 0, $lastPayment["currency_code"] ?? "USD"),
                 currency: mb_strtoupper($lastPayment['currency_code'] ?? 'USD'),
                 interval: 'month',
                 driver: $this->getName(),

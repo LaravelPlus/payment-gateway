@@ -415,10 +415,10 @@ final class Invoice extends Model
         if (class_exists(NumberFormatter::class)) {
             $formatter = new NumberFormatter('en', NumberFormatter::CURRENCY);
 
-            return $formatter->formatCurrency($amount / 100, $this->currency);
+            return $formatter->formatCurrency(\LaravelPlus\PaymentGateway\Support\Money::toDecimal($amount, $this->currency), $this->currency);
         }
 
-        $formatted = number_format($amount / 100, 2);
+        $formatted = number_format(\LaravelPlus\PaymentGateway\Support\Money::toDecimal($amount, $this->currency), \LaravelPlus\PaymentGateway\Support\Money::decimals($this->currency));
         $symbols = ['USD' => '$', 'EUR' => '€', 'GBP' => '£', 'JPY' => '¥'];
 
         return ($symbols[strtoupper($this->currency)] ?? $this->currency.' ').$formatted;

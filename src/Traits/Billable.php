@@ -27,7 +27,7 @@ trait Billable
      */
     public function paymentCustomers(): HasMany
     {
-        $model = config('payment-gateway.models.payment_customer');
+        $model = config('payment-gateway.models.payment_customer', \LaravelPlus\PaymentGateway\Models\PaymentCustomer::class);
 
         return $this->hasMany($model, 'user_id');
     }
@@ -37,7 +37,7 @@ trait Billable
      */
     public function paymentCustomer(): HasOne
     {
-        $model = config('payment-gateway.models.payment_customer');
+        $model = config('payment-gateway.models.payment_customer', \LaravelPlus\PaymentGateway\Models\PaymentCustomer::class);
 
         return $this->hasOne($model, 'user_id')->where('is_primary', true);
     }

@@ -18,7 +18,10 @@ final class SubscriptionCanceledMail extends Mailable
 
     public function __construct(
         public readonly Subscription $subscription,
-    ) {}
+    ) {
+        // Only send once the webhook transaction has committed; a retry must not resend.
+        $this->afterCommit();
+    }
 
     /**
      * Get the message envelope.

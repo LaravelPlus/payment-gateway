@@ -74,9 +74,9 @@ class AbstractPaymentGatewayTest extends TestCase
                 return $this->formatAmount($amountInCents, $currency);
             }
 
-            public function testToDecimalString(int $amountInCents): string
+            public function testToDecimalString(int $amountInCents, string $currency = 'USD'): string
             {
-                return $this->toDecimalString($amountInCents);
+                return $this->toDecimalString($amountInCents, $currency);
             }
 
             public function testGetConfig(string $key, mixed $default = null): mixed

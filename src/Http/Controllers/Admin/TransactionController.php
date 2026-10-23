@@ -139,21 +139,21 @@ final class TransactionController extends Controller
         }
 
         try {
-            $amount = $request->get('amount') ?? $transaction->getRefundableAmount();
-            $reason = $request->get('reason');
+            $refundable = $transaction->getRefundableAmount();
+            $amount = $request->integer('amount') ?: $refundable;
+            $reason = $request->input('reason');
+            $gateway = Payment::driver($transaction->driver);
 
-            $result = Payment::driver($transaction->driver)->refund(
-                $transaction->provider_id,
-                $amount,
-                $reason
-            );
+            $result = $amount < $refundable
+                ? $gateway->partialRefund($transaction->provider_id, $amount, $reason)
+                : $gateway->refund($transaction->provider_id, $reason);
 
             if ($result->isSuccessful()) {
                 return back()->with('success', 'Refund processed successfully.');
             }
 
             return back()->with('error', 'Refund failed: '.($result->failureReason ?? 'Unknown error'));
-        } catch (\Exception $e) {
+        } catch (\Throwable $e) {
             return back()->with('error', 'Refund failed: '.$e->getMessage());
         }
     }

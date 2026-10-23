@@ -202,10 +202,10 @@ final class DashboardController extends Controller
         if (class_exists(\NumberFormatter::class)) {
             $formatter = new \NumberFormatter('en', \NumberFormatter::CURRENCY);
 
-            return $formatter->formatCurrency($cents / 100, $currency);
+            return $formatter->formatCurrency(\LaravelPlus\PaymentGateway\Support\Money::toDecimal($cents, $currency), $currency);
         }
 
-        $amount = number_format($cents / 100, 2);
+        $amount = number_format(\LaravelPlus\PaymentGateway\Support\Money::toDecimal($cents, $currency), \LaravelPlus\PaymentGateway\Support\Money::decimals($currency));
         $symbols = ['USD' => '$', 'EUR' => '€', 'GBP' => '£', 'JPY' => '¥'];
 
         return ($symbols[strtoupper($currency)] ?? $currency.' ').$amount;
