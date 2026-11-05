@@ -69,7 +69,7 @@ final class HandleStripeWebhook
 
     private function handlePaymentSucceeded(array $data): void
     {
-        $paymentIntent = $data['object'] ?? $data;
+        $paymentIntent = $data;
 
         $transaction = Transaction::where('provider_id', $paymentIntent['id'])
             ->where('driver', 'stripe')
@@ -93,7 +93,7 @@ final class HandleStripeWebhook
 
     private function handlePaymentFailed(array $data): void
     {
-        $paymentIntent = $data['object'] ?? $data;
+        $paymentIntent = $data;
 
         $transaction = Transaction::where('provider_id', $paymentIntent['id'])
             ->where('driver', 'stripe')
@@ -114,7 +114,7 @@ final class HandleStripeWebhook
 
     private function handleChargeSucceeded(array $data): void
     {
-        $charge = $data['object'] ?? $data;
+        $charge = $data;
 
         // Find or create transaction
         $transaction = Transaction::firstOrCreate(
@@ -137,7 +137,7 @@ final class HandleStripeWebhook
 
     private function handleChargeFailed(array $data): void
     {
-        $charge = $data['object'] ?? $data;
+        $charge = $data;
 
         $transaction = Transaction::where('provider_id', $charge['id'])
             ->where('driver', 'stripe')
@@ -153,7 +153,7 @@ final class HandleStripeWebhook
 
     private function handleChargeRefunded(array $data): void
     {
-        $charge = $data['object'] ?? $data;
+        $charge = $data;
 
         $transaction = Transaction::where('provider_id', $charge['id'])
             ->where('driver', 'stripe')
@@ -191,7 +191,7 @@ final class HandleStripeWebhook
 
     private function handleSubscriptionCreated(array $data): void
     {
-        $stripeSubscription = $data['object'] ?? $data;
+        $stripeSubscription = $data;
 
         $subscription = $this->syncSubscription($stripeSubscription);
 
@@ -202,14 +202,14 @@ final class HandleStripeWebhook
 
     private function handleSubscriptionUpdated(array $data): void
     {
-        $stripeSubscription = $data['object'] ?? $data;
+        $stripeSubscription = $data;
 
         $this->syncSubscription($stripeSubscription);
     }
 
     private function handleSubscriptionDeleted(array $data): void
     {
-        $stripeSubscription = $data['object'] ?? $data;
+        $stripeSubscription = $data;
 
         $subscription = Subscription::where('provider_id', $stripeSubscription['id'])
             ->where('driver', 'stripe')
@@ -228,7 +228,7 @@ final class HandleStripeWebhook
 
     private function handleTrialWillEnd(array $data): void
     {
-        $stripeSubscription = $data['object'] ?? $data;
+        $stripeSubscription = $data;
 
         $subscription = Subscription::where('provider_id', $stripeSubscription['id'])
             ->where('driver', 'stripe')
@@ -245,7 +245,7 @@ final class HandleStripeWebhook
 
     private function handleInvoicePaid(array $data): void
     {
-        $stripeInvoice = $data['object'] ?? $data;
+        $stripeInvoice = $data;
 
         // Update or create local invoice
         $invoice = Invoice::updateOrCreate(
@@ -274,7 +274,7 @@ final class HandleStripeWebhook
 
     private function handleInvoicePaymentFailed(array $data): void
     {
-        $stripeInvoice = $data['object'] ?? $data;
+        $stripeInvoice = $data;
 
         Invoice::where('provider_id', $stripeInvoice['id'])
             ->where('driver', 'stripe')
@@ -283,7 +283,7 @@ final class HandleStripeWebhook
 
     private function handleInvoiceFinalized(array $data): void
     {
-        $stripeInvoice = $data['object'] ?? $data;
+        $stripeInvoice = $data;
 
         Invoice::where('provider_id', $stripeInvoice['id'])
             ->where('driver', 'stripe')
@@ -362,8 +362,7 @@ final class HandleStripeWebhook
             return null;
         }
 
-        $paymentCustomer = \LaravelPlus\PaymentGateway\Models\PaymentCustomer::where('provider_id', $customerId)
-            ->where('driver', 'stripe')
+        $paymentCustomer = \LaravelPlus\PaymentGateway\Models\PaymentCustomer::where('stripe_id', $customerId)
             ->first();
 
         return $paymentCustomer?->user;

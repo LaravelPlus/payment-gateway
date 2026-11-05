@@ -122,7 +122,7 @@ final class Refund extends Model
      */
     public function getAmountDecimal(): float
     {
-        return $this->amount / 100;
+        return \LaravelPlus\PaymentGateway\Support\Money::toDecimal($this->amount, $this->currency);
     }
 
     /**
@@ -136,7 +136,7 @@ final class Refund extends Model
             return $formatter->formatCurrency($this->getAmountDecimal(), $this->currency);
         }
 
-        $amount = number_format($this->getAmountDecimal(), 2);
+        $amount = number_format($this->getAmountDecimal(), \LaravelPlus\PaymentGateway\Support\Money::decimals($this->currency));
         $symbols = ['USD' => '$', 'EUR' => '€', 'GBP' => '£', 'JPY' => '¥'];
 
         return ($symbols[strtoupper($this->currency)] ?? $this->currency.' ').$amount;

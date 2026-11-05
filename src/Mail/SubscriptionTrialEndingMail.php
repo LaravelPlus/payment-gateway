@@ -20,7 +20,10 @@ final class SubscriptionTrialEndingMail extends Mailable
     public function __construct(
         public readonly Subscription $subscription,
         public readonly int $daysRemaining = 3,
-    ) {}
+    ) {
+        // Only send once the webhook transaction has committed; a retry must not resend.
+        $this->afterCommit();
+    }
 
     /**
      * Get the message envelope.
@@ -57,6 +60,6 @@ final class SubscriptionTrialEndingMail extends Mailable
     {
         $formatter = new NumberFormatter('en', NumberFormatter::CURRENCY);
 
-        return $formatter->formatCurrency($amount / 100, $currency);
+        return $formatter->formatCurrency(\LaravelPlus\PaymentGateway\Support\Money::toDecimal($amount, $currency), $currency);
     }
 }

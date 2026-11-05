@@ -258,7 +258,7 @@ final class Plan extends Model
      */
     public function getAmountDecimalAttribute(): float
     {
-        return $this->amount / 100;
+        return \LaravelPlus\PaymentGateway\Support\Money::toDecimal($this->amount, $this->currency);
     }
 
     /**
@@ -269,10 +269,10 @@ final class Plan extends Model
         if (class_exists(NumberFormatter::class)) {
             $formatter = new NumberFormatter('en', NumberFormatter::CURRENCY);
 
-            return $formatter->formatCurrency($this->amount / 100, $this->currency);
+            return $formatter->formatCurrency($this->getAmountDecimal(), $this->currency);
         }
 
-        $amount = number_format($this->amount / 100, 2);
+        $amount = number_format($this->getAmountDecimal(), \LaravelPlus\PaymentGateway\Support\Money::decimals($this->currency));
         $symbols = ['USD' => '$', 'EUR' => '€', 'GBP' => '£', 'JPY' => '¥'];
 
         return ($symbols[strtoupper($this->currency)] ?? $this->currency.' ').$amount;

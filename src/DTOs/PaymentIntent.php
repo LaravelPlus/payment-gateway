@@ -67,7 +67,7 @@ final readonly class PaymentIntent
      */
     public function getAmountDecimal(): float
     {
-        return $this->amount / 100;
+        return \LaravelPlus\PaymentGateway\Support\Money::toDecimal($this->amount, $this->currency);
     }
 
     /**

@@ -19,7 +19,10 @@ final class RefundProcessedMail extends Mailable
 
     public function __construct(
         public readonly Refund $refund,
-    ) {}
+    ) {
+        // Only send once the webhook transaction has committed; a retry must not resend.
+        $this->afterCommit();
+    }
 
     /**
      * Get the message envelope.
@@ -54,6 +57,6 @@ final class RefundProcessedMail extends Mailable
     {
         $formatter = new NumberFormatter('en', NumberFormatter::CURRENCY);
 
-        return $formatter->formatCurrency($amount / 100, $currency);
+        return $formatter->formatCurrency(\LaravelPlus\PaymentGateway\Support\Money::toDecimal($amount, $currency), $currency);
     }
 }

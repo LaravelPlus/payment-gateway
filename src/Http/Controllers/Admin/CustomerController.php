@@ -140,6 +140,6 @@ final class CustomerController extends Controller
     {
         $formatter = new \NumberFormatter('en', \NumberFormatter::CURRENCY);
 
-        return $formatter->formatCurrency($cents / 100, $currency);
+        return $formatter->formatCurrency(\LaravelPlus\PaymentGateway\Support\Money::toDecimal($cents, $currency), $currency);
     }
 }

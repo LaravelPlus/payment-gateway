@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace LaravelPlus\PaymentGateway\Http\Requests\Admin;
 
 use Illuminate\Foundation\Http\FormRequest;
+use LaravelPlus\PaymentGateway\Models\Transaction;
 
 final class RefundTransactionRequest extends FormRequest
 {
@@ -23,8 +24,15 @@ final class RefundTransactionRequest extends FormRequest
      */
     public function rules(): array
     {
+        $transaction = $this->route('transaction');
+        $amountRules = ['nullable', 'integer', 'min:1'];
+
+        if ($transaction instanceof Transaction) {
+            $amountRules[] = 'max:'.max(1, $transaction->getRefundableAmount());
+        }
+
         return [
-            'amount' => ['nullable', 'integer', 'min:1'],
+            'amount' => $amountRules,
             'reason' => ['nullable', 'string', 'max:500'],
         ];
     }

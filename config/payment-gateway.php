@@ -163,6 +163,7 @@ return [
         'plan' => LaravelPlus\PaymentGateway\Models\Plan::class,
         'payment_method' => LaravelPlus\PaymentGateway\Models\PaymentMethod::class,
         'refund' => LaravelPlus\PaymentGateway\Models\Refund::class,
+        'payment_customer' => LaravelPlus\PaymentGateway\Models\PaymentCustomer::class,
     ],
 
     /*

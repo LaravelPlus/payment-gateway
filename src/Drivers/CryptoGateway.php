@@ -109,7 +109,7 @@ final class CryptoGateway extends AbstractPaymentGateway implements SupportsWebh
         array $metadata
     ): PaymentIntent {
         try {
-            $amountDecimal = number_format($amount / 100, 2, '.', '');
+            $amountDecimal = \LaravelPlus\PaymentGateway\Support\Money::toDecimalString($amount, $currency);
 
             $response = \Illuminate\Support\Facades\Http::withHeaders([
                 'X-CC-Api-Key' => $this->getConfig('api_key'),
@@ -245,7 +245,7 @@ final class CryptoGateway extends AbstractPaymentGateway implements SupportsWebh
             return new PaymentResult(
                 transactionId: $charge['id'],
                 status: $this->mapCoinbaseStatus($status),
-                amount: (int) (((float) ($localPrice['amount'] ?? 0)) * 100),
+                amount: \LaravelPlus\PaymentGateway\Support\Money::toMinor($localPrice["amount"] ?? 0, $localPrice["currency"] ?? "USD"),
                 currency: mb_strtoupper($localPrice['currency'] ?? 'USD'),
                 driver: $this->getName(),
                 metadata: [

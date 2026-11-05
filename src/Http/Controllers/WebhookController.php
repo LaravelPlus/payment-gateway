@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace LaravelPlus\PaymentGateway\Http\Controllers;
 
-use Exception;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
@@ -14,6 +13,7 @@ use LaravelPlus\PaymentGateway\Events\PaymentWebhookReceived;
 use LaravelPlus\PaymentGateway\Events\WebhookHandled;
 use LaravelPlus\PaymentGateway\Events\WebhookHandleFailed;
 use LaravelPlus\PaymentGateway\Facades\Payment;
+use Throwable;
 
 final class WebhookController extends Controller
 {
@@ -107,7 +107,7 @@ final class WebhookController extends Controller
             event(new WebhookHandled($payload, $result));
 
             return response()->json($result);
-        } catch (Exception $e) {
+        } catch (Throwable $e) {
             // Dispatch failure event
             event(new WebhookHandleFailed($driver, $e));
 

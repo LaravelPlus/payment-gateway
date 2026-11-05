@@ -75,8 +75,7 @@ final class HandlePayPalWebhook
             return;
         }
 
-        $transaction = Transaction::where('provider_id', $captureId)
-            ->where('driver', 'paypal')
+        $transaction = Transaction::where('paypal_id', $captureId)
             ->first();
 
         if ($transaction) {
@@ -100,8 +99,7 @@ final class HandlePayPalWebhook
             return;
         }
 
-        $transaction = Transaction::where('provider_id', $captureId)
-            ->where('driver', 'paypal')
+        $transaction = Transaction::where('paypal_id', $captureId)
             ->first();
 
         if ($transaction) {
@@ -124,8 +122,7 @@ final class HandlePayPalWebhook
             return;
         }
 
-        $transaction = Transaction::where('provider_id', $captureId)
-            ->where('driver', 'paypal')
+        $transaction = Transaction::where('paypal_id', $captureId)
             ->first();
 
         if (!$transaction) {
@@ -170,8 +167,7 @@ final class HandlePayPalWebhook
         }
 
         // Find transaction by order ID
-        $transaction = Transaction::where('provider_id', $orderId)
-            ->where('driver', 'paypal')
+        $transaction = Transaction::where('paypal_id', $orderId)
             ->first();
 
         if ($transaction && $transaction->status !== PaymentStatus::Succeeded->value) {
@@ -208,8 +204,7 @@ final class HandlePayPalWebhook
             return;
         }
 
-        $subscription = Subscription::where('provider_id', $subscriptionId)
-            ->where('driver', 'paypal')
+        $subscription = Subscription::where('paypal_id', $subscriptionId)
             ->first();
 
         if ($subscription) {
@@ -236,8 +231,7 @@ final class HandlePayPalWebhook
             return;
         }
 
-        $subscription = Subscription::where('provider_id', $subscriptionId)
-            ->where('driver', 'paypal')
+        $subscription = Subscription::where('paypal_id', $subscriptionId)
             ->first();
 
         if ($subscription) {
@@ -259,8 +253,7 @@ final class HandlePayPalWebhook
             return;
         }
 
-        $subscription = Subscription::where('provider_id', $subscriptionId)
-            ->where('driver', 'paypal')
+        $subscription = Subscription::where('paypal_id', $subscriptionId)
             ->first();
 
         if ($subscription) {
@@ -278,8 +271,7 @@ final class HandlePayPalWebhook
             return;
         }
 
-        $subscription = Subscription::where('provider_id', $subscriptionId)
-            ->where('driver', 'paypal')
+        $subscription = Subscription::where('paypal_id', $subscriptionId)
             ->first();
 
         if ($subscription) {
@@ -334,8 +326,7 @@ final class HandlePayPalWebhook
             return;
         }
 
-        $transaction = Transaction::where('provider_id', $saleId)
-            ->where('driver', 'paypal')
+        $transaction = Transaction::where('paypal_id', $saleId)
             ->first();
 
         if (!$transaction) {
@@ -413,7 +404,7 @@ final class HandlePayPalWebhook
 
         $value = $amount['value'] ?? $amount['total'] ?? 0;
 
-        return (int) round((float) $value * 100);
+        return \LaravelPlus\PaymentGateway\Support\Money::toMinor($value, $amount["currency_code"] ?? $amount["currency"] ?? "USD");
     }
 
     /**
@@ -425,8 +416,7 @@ final class HandlePayPalWebhook
             return null;
         }
 
-        $paymentCustomer = \LaravelPlus\PaymentGateway\Models\PaymentCustomer::where('provider_id', $payerId)
-            ->where('driver', 'paypal')
+        $paymentCustomer = \LaravelPlus\PaymentGateway\Models\PaymentCustomer::where('paypal_id', $payerId)
             ->first();
 
         return $paymentCustomer?->user;

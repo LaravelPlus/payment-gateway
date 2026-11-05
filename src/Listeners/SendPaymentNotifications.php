@@ -29,7 +29,7 @@ final class SendPaymentNotifications
      */
     public function handlePaymentSucceeded(PaymentSucceeded $event): void
     {
-        $transaction = Transaction::where('provider_id', $event->result->transactionId)->first();
+        $transaction = Transaction::where('provider_id', $event->payment->transactionId)->first();
 
         if ($transaction) {
             $invoice = Invoice::where('transaction_id', $transaction->id)->first();
@@ -42,7 +42,7 @@ final class SendPaymentNotifications
      */
     public function handlePaymentFailed(PaymentFailed $event): void
     {
-        $transaction = Transaction::where('provider_id', $event->result->transactionId)->first();
+        $transaction = Transaction::where('provider_id', $event->payment->transactionId)->first();
 
         if ($transaction) {
             $this->notificationService->sendPaymentFailed($transaction, $event->reason);
@@ -54,7 +54,7 @@ final class SendPaymentNotifications
      */
     public function handleSubscriptionCreated(SubscriptionCreated $event): void
     {
-        $subscription = Subscription::where('provider_id', $event->subscription->providerId)->first();
+        $subscription = Subscription::where('provider_id', $event->subscription->id)->first();
 
         if ($subscription) {
             $this->notificationService->sendSubscriptionCreated($subscription);
@@ -66,7 +66,7 @@ final class SendPaymentNotifications
      */
     public function handleSubscriptionCanceled(SubscriptionCanceled $event): void
     {
-        $subscription = Subscription::where('provider_id', $event->subscription->providerId)->first();
+        $subscription = Subscription::where('provider_id', $event->subscription->id)->first();
 
         if ($subscription) {
             $this->notificationService->sendSubscriptionCanceled($subscription);
@@ -78,7 +78,7 @@ final class SendPaymentNotifications
      */
     public function handleRefundProcessed(RefundProcessed $event): void
     {
-        $refund = Refund::where('provider_id', $event->refund->providerId)->first();
+        $refund = Refund::where('provider_id', $event->refund->id)->first();
 
         if ($refund) {
             $this->notificationService->sendRefundProcessed($refund);

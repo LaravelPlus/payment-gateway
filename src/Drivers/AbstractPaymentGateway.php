@@ -108,7 +108,7 @@ abstract class AbstractPaymentGateway implements PaymentGatewayContract
     {
         $formatter = new NumberFormatter('en', NumberFormatter::CURRENCY);
 
-        return $formatter->formatCurrency($amountInCents / 100, $currency);
+        return $formatter->formatCurrency(\LaravelPlus\PaymentGateway\Support\Money::toDecimal($amountInCents, $currency), $currency);
     }
 
     /**
@@ -116,9 +116,9 @@ abstract class AbstractPaymentGateway implements PaymentGatewayContract
      *
      * Example: 1050 => "10.50"
      */
-    protected function toDecimalString(int $amountInCents): string
+    protected function toDecimalString(int $amountInCents, string $currency): string
     {
-        return number_format($amountInCents / 100, 2, '.', '');
+        return \LaravelPlus\PaymentGateway\Support\Money::toDecimalString($amountInCents, $currency);
     }
 
     /**

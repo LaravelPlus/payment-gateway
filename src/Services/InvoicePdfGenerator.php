@@ -116,8 +116,8 @@ final class InvoicePdfGenerator
         $lineItemsHtml = '';
 
         foreach ($invoice->line_items ?? [] as $item) {
-            $unitPrice = number_format($item['unit_price'] / 100, 2);
-            $amount = number_format($item['amount'] / 100, 2);
+            $unitPrice = \LaravelPlus\PaymentGateway\Support\Money::toDecimalString((int) $item["unit_price"], $invoice->currency);
+            $amount = \LaravelPlus\PaymentGateway\Support\Money::toDecimalString((int) $item["amount"], $invoice->currency);
             $lineItemsHtml .= <<<HTML
                 <tr>
                     <td style="padding: 12px; border-bottom: 1px solid #e5e5e5;">{$item['description']}</td>
@@ -138,7 +138,7 @@ final class InvoicePdfGenerator
         // Pre-compute values that can't be computed inside HEREDOC
         $invoiceDate = $invoice->invoice_date->format('M d, Y');
         $dueDate = $invoice->due_date?->format('M d, Y') ?? 'Upon Receipt';
-        $amountPaidFormatted = number_format($invoice->amount_paid / 100, 2);
+        $amountPaidFormatted = \LaravelPlus\PaymentGateway\Support\Money::toDecimalString($invoice->amount_paid, $invoice->currency);
 
         return <<<HTML
         <!DOCTYPE html>
