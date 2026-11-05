@@ -308,12 +308,8 @@ final class HandleStripeWebhook
                 'interval' => $stripeSubscription['items']['data'][0]['price']['recurring']['interval'] ?? 'month',
                 'interval_count' => $stripeSubscription['items']['data'][0]['price']['recurring']['interval_count'] ?? 1,
                 'quantity' => $stripeSubscription['quantity'] ?? 1,
-                'current_period_start' => isset($stripeSubscription['current_period_start'])
-                    ? \Carbon\Carbon::createFromTimestamp($stripeSubscription['current_period_start'])
-                    : null,
-                'current_period_end' => isset($stripeSubscription['current_period_end'])
-                    ? \Carbon\Carbon::createFromTimestamp($stripeSubscription['current_period_end'])
-                    : null,
+                'current_period_start' => $this->periodTimestamp($stripeSubscription, 'current_period_start'),
+                'current_period_end' => $this->periodTimestamp($stripeSubscription, 'current_period_end'),
                 'trial_start' => isset($stripeSubscription['trial_start'])
                     ? \Carbon\Carbon::createFromTimestamp($stripeSubscription['trial_start'])
                     : null,
@@ -327,6 +323,16 @@ final class HandleStripeWebhook
                 'provider_response' => $stripeSubscription,
             ]
         );
+    }
+
+    /**
+     * Stripe API 2025-03-31 and later keep the period on the subscription item.
+     */
+    private function periodTimestamp(array $stripeSubscription, string $field): ?\Carbon\Carbon
+    {
+        $timestamp = $stripeSubscription[$field] ?? $stripeSubscription['items']['data'][0][$field] ?? null;
+
+        return $timestamp !== null ? \Carbon\Carbon::createFromTimestamp($timestamp) : null;
     }
 
     /**
