@@ -649,8 +649,8 @@ final class StripeGateway extends AbstractPaymentGateway implements SupportsChec
 
         // empty(), not null: `STRIPE_WEBHOOK_SECRET=` arrives as "". An HMAC
         // keyed with "" is one anyone can compute, and stripe-php < 22 accepts
-        // it, so an unset secret must fail closed here, not in the library.
-        if (empty($signature) || empty($secret)) {
+        // it, so an unset or blank secret must fail closed here, not in the library.
+        if (empty($signature) || trim((string) $secret) === '' || $secret === '0') {
             return false;
         }
 

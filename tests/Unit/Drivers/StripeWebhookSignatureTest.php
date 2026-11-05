@@ -37,7 +37,7 @@ class StripeWebhookSignatureTest extends TestCase
 
     public static function missingSecrets(): array
     {
-        return ['null' => [null], 'empty string (KEY= in .env)' => ['']];
+        return ['null' => [null], 'empty string (KEY= in .env)' => [''], 'zero' => ['0'], 'whitespace only' => [' '], 'tab and newline' => ["\t\n"]];
     }
 
     #[Test]
