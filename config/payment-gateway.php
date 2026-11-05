@@ -204,9 +204,23 @@ return [
         'refund_processed' => env('PAYMENT_NOTIFY_REFUND', true),
         'trial_ending' => env('PAYMENT_NOTIFY_TRIAL_ENDING', true),
 
+        // Receives dispute alerts
+        'admin_email' => env('PAYMENT_ADMIN_EMAIL'),
+
         // Days before trial ends to send reminder
         'trial_reminder_days' => [3, 1],
     ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Failed Renewals
+    |--------------------------------------------------------------------------
+    |
+    | Days a past_due subscription keeps access, counted from the start of the
+    | unpaid period. 0 removes access as soon as a renewal fails.
+    |
+    */
+    'past_due_grace_days' => (int) env('PAYMENT_PAST_DUE_GRACE_DAYS', 0),
 
     /*
     |--------------------------------------------------------------------------

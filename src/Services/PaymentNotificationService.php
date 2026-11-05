@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace LaravelPlus\PaymentGateway\Services;
 
+use LaravelPlus\PaymentGateway\Mail\DisputeAlertMail;
+use LaravelPlus\PaymentGateway\Mail\InvoicePaymentFailedMail;
 use Illuminate\Support\Facades\Mail;
 use LaravelPlus\PaymentGateway\Mail\PaymentFailedMail;
 use LaravelPlus\PaymentGateway\Mail\PaymentReceiptMail;
@@ -53,6 +55,34 @@ final class PaymentNotificationService
         }
 
         Mail::to($user->email)->queue(new PaymentFailedMail($transaction, $reason));
+    }
+
+    /**
+     * Tell the customer a subscription invoice could not be charged.
+     */
+    public function sendInvoicePaymentFailed(object $user, int $amountDue, string $currency, ?string $invoiceUrl): void
+    {
+        if (!$this->isNotificationEnabled('payment_failed')) {
+            return;
+        }
+
+        Mail::to($user->email)->queue(new InvoicePaymentFailedMail($user, $amountDue, $currency, $invoiceUrl));
+    }
+
+    /**
+     * Tell the site owner about a dispute. Needs `notifications.admin_email`.
+     *
+     * @param  array<string, mixed>  $dispute
+     */
+    public function sendDisputeAlert(string $type, array $dispute): void
+    {
+        $to = config('payment-gateway.notifications.admin_email');
+
+        if (!$to) {
+            return;
+        }
+
+        Mail::to($to)->queue(new DisputeAlertMail($type, $dispute));
     }
 
     /**
