@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 namespace LaravelPlus\PaymentGateway\Listeners;
 
+use Stripe\StripeClient;
+use LaravelPlus\PaymentGateway\Services\PaymentNotificationService;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
 use LaravelPlus\PaymentGateway\Enums\PaymentStatus;
 use LaravelPlus\PaymentGateway\Enums\SubscriptionStatus;
@@ -26,6 +29,7 @@ final class HandleStripeWebhook
 {
     public function __construct(
         private readonly InvoicePdfGenerator $pdfGenerator,
+        private readonly PaymentNotificationService $notifications,
     ) {}
 
     /**
@@ -62,6 +66,9 @@ final class HandleStripeWebhook
             'invoice.paid' => $this->handleInvoicePaid($data),
             'invoice.payment_failed' => $this->handleInvoicePaymentFailed($data),
             'invoice.finalized' => $this->handleInvoiceFinalized($data),
+
+            // Dispute events
+            'charge.dispute.created', 'charge.dispute.closed' => $this->handleDispute($data, $type),
 
             default => Log::debug('Unhandled Stripe webhook type', ['type' => $type]),
         };
@@ -155,16 +162,22 @@ final class HandleStripeWebhook
     {
         $charge = $data;
 
-        $transaction = Transaction::where('provider_id', $charge['id'])
-            ->where('driver', 'stripe')
-            ->first();
-
-        if (!$transaction) {
-            return;
-        }
+        // A charge from before webhooks were enabled has no transaction yet.
+        $transaction = Transaction::firstOrCreate(
+            ['provider_id' => $charge['id'], 'driver' => 'stripe'],
+            [
+                'user_id' => $this->findUserByCustomer($charge['customer'] ?? null)?->id,
+                'amount' => $charge['amount'],
+                'currency' => mb_strtoupper($charge['currency']),
+                'status' => PaymentStatus::Succeeded->value,
+                'payment_method' => $charge['payment_method'] ?? null,
+                'description' => $charge['description'] ?? null,
+                'provider_response' => $charge,
+            ]
+        );
 
         // Create refund records for each refund
-        foreach ($charge['refunds']['data'] ?? [] as $stripeRefund) {
+        foreach ($charge['refunds']['data'] ?? $this->fetchRefunds($charge['id']) as $stripeRefund) {
             $refund = Refund::firstOrCreate(
                 ['provider_id' => $stripeRefund['id'], 'driver' => 'stripe'],
                 [
@@ -187,6 +200,21 @@ final class HandleStripeWebhook
         if ($charge['refunded']) {
             $transaction->update(['status' => PaymentStatus::Refunded->value]);
         }
+    }
+
+    /**
+     * Stripe API 2022-11-15 and later leave refunds out of the charge event.
+     *
+     * @return array<int, array<string, mixed>>
+     */
+    private function fetchRefunds(string $chargeId): array
+    {
+        $stripe = app(StripeClient::class, ['config' => (string) config('payment-gateway.drivers.stripe.secret')]);
+
+        return array_map(
+            static fn ($refund): array => $refund->toArray(),
+            $stripe->refunds->all(['charge' => $chargeId, 'limit' => 100])->data,
+        );
     }
 
     private function handleSubscriptionCreated(array $data): void
@@ -279,6 +307,33 @@ final class HandleStripeWebhook
         Invoice::where('provider_id', $stripeInvoice['id'])
             ->where('driver', 'stripe')
             ->update(['status' => 'open']);
+
+        $user = $this->findUserByCustomer($stripeInvoice['customer'] ?? null);
+
+        // Stripe retries a failed invoice; the customer hears about it once.
+        if ($user?->email && Cache::add('payment-gateway:invoice-failed:'.$stripeInvoice['id'], true, now()->addDays(60))) {
+            $this->notifications->sendInvoicePaymentFailed(
+                $user,
+                (int) ($stripeInvoice['amount_due'] ?? 0),
+                (string) ($stripeInvoice['currency'] ?? ''),
+                $stripeInvoice['hosted_invoice_url'] ?? null,
+            );
+        }
+    }
+
+    private function handleDispute(array $dispute, string $type): void
+    {
+        Log::critical('Stripe dispute', [
+            'type' => $type,
+            'dispute_id' => $dispute['id'] ?? null,
+            'charge_id' => $dispute['charge'] ?? null,
+            'amount' => $dispute['amount'] ?? null,
+            'currency' => $dispute['currency'] ?? null,
+            'reason' => $dispute['reason'] ?? null,
+            'status' => $dispute['status'] ?? null,
+        ]);
+
+        $this->notifications->sendDisputeAlert($type, $dispute);
     }
 
     private function handleInvoiceFinalized(array $data): void
@@ -297,8 +352,16 @@ final class HandleStripeWebhook
     {
         $user = $this->findUserByCustomer($stripeSubscription['customer']);
 
-        return Subscription::updateOrCreate(
-            ['provider_id' => $stripeSubscription['id'], 'driver' => 'stripe'],
+        $subscription = Subscription::firstOrNew(['provider_id' => $stripeSubscription['id'], 'driver' => 'stripe']);
+
+        // Required on create; never overwritten, because the app may have set it.
+        if (! $subscription->exists) {
+            $subscription->plan_id = $stripeSubscription['metadata']['plan']
+                ?? $stripeSubscription['items']['data'][0]['price']['id']
+                ?? 'unknown';
+        }
+
+        $subscription->fill(
             [
                 'user_id' => $user?->id,
                 'provider_plan_id' => $stripeSubscription['items']['data'][0]['price']['id'] ?? null,
@@ -322,7 +385,9 @@ final class HandleStripeWebhook
                 'cancel_at_period_end' => $stripeSubscription['cancel_at_period_end'] ?? false,
                 'provider_response' => $stripeSubscription,
             ]
-        );
+        )->save();
+
+        return $subscription;
     }
 
     /**

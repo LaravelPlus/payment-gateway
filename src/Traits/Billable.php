@@ -180,7 +180,17 @@ trait Billable
      */
     public function subscribed(?string $plan = null): bool
     {
-        $query = $this->subscriptions()->whereIn('status', ['active', 'trialing']);
+        $graceDays = (int) config('payment-gateway.past_due_grace_days', 0);
+
+        $query = $this->subscriptions()->where(function ($query) use ($graceDays): void {
+            $query->whereIn('status', ['active', 'trialing']);
+
+            if ($graceDays > 0) {
+                $query->orWhere(fn ($pastDue) => $pastDue
+                    ->where('status', 'past_due')
+                    ->where('current_period_start', '>=', now()->subDays($graceDays)));
+            }
+        });
 
         if ($plan !== null) {
             $query->where('plan_id', $plan);
