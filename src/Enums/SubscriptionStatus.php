@@ -14,6 +14,8 @@ enum SubscriptionStatus: string
     case Unpaid = 'unpaid';
     case Incomplete = 'incomplete';
     case IncompleteExpired = 'incomplete_expired';
+    // Ran its full term (PayPal EXPIRED, or a local subscription past its end).
+    case Expired = 'expired';
 
     /**
      * Check if subscription is active.
@@ -45,6 +47,7 @@ enum SubscriptionStatus: string
         return in_array($this, [
             self::Canceled,
             self::IncompleteExpired,
+            self::Expired,
         ]);
     }
 
@@ -62,6 +65,7 @@ enum SubscriptionStatus: string
             self::Unpaid => 'Unpaid',
             self::Incomplete => 'Incomplete',
             self::IncompleteExpired => 'Expired',
+            self::Expired => 'Expired',
         };
     }
 
@@ -75,7 +79,7 @@ enum SubscriptionStatus: string
             self::Trialing => 'blue',
             self::PastDue, self::Unpaid => 'yellow',
             self::Paused => 'gray',
-            self::Canceled, self::IncompleteExpired => 'red',
+            self::Canceled, self::IncompleteExpired, self::Expired => 'red',
             self::Incomplete => 'orange',
         };
     }
