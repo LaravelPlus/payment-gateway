@@ -312,8 +312,10 @@ Webhook routes are automatically registered at:
 
 **Stripe invoices.** Subscribe the Stripe endpoint to `invoice.finalized`, `invoice.paid`,
 `invoice.payment_failed`, `invoice.voided` and `invoice.marked_uncollectible`. Each Stripe invoice
-keeps exactly one local invoice, whatever order its events arrive in. Paid and void are final, so a
-late `finalized` event never reopens one. The PDF is generated once, when the invoice is paid.
+keeps exactly one local invoice, whatever order its events arrive in. Each sync holds a per-invoice
+`Cache::lock`, so use a lock-capable cache shared by all workers (redis, database or memcached; the wait
+is `payment-gateway.webhooks.lock_wait`, default 10 seconds). Paid and void are final, so a late
+`finalized` event never reopens one or overwrites its amounts. The PDF is generated once, when the invoice is paid.
 Invoices for a Stripe customer that matches no local user are not stored. Each one is logged as a
 warning (`Stripe invoice for an unknown customer`) so it can be reconciled.
 

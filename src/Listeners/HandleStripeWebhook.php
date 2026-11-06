@@ -291,16 +291,21 @@ final class HandleStripeWebhook
             return null;
         }
 
-        // ponytail: two different events for one new invoice racing each other can still insert twice;
-        // a unique (driver, provider_id) index closes that if it shows up.
+        // finalized and paid often land milliseconds apart on different workers: without the lock
+        // both miss the row and insert one each. Needs a lock-capable cache shared by all workers
+        // (redis, database, memcached). If the lock can't be had in time, the 5xx makes Stripe retry.
+        return Cache::lock('payment-gateway:invoice-sync:'.$stripeInvoice['id'], 30)
+            ->block((int) config('payment-gateway.webhooks.lock_wait', 10), fn (): Invoice => $this->upsertInvoice($stripeInvoice, $eventStatus, $user));
+    }
+
+    /**
+     * Runs under the per-invoice lock, PDF included, so side effects happen once.
+     */
+    private function upsertInvoice(array $stripeInvoice, InvoiceStatus $eventStatus, object $user): Invoice
+    {
         $invoice = Invoice::firstOrNew(['provider_id' => $stripeInvoice['id'], 'driver' => 'stripe']);
         $status = InvoiceStatus::tryFrom((string) ($stripeInvoice['status'] ?? '')) ?? $eventStatus;
         $current = $invoice->exists ? $invoice->getStatusEnum() : null;
-
-        // Paid and void are final: a late finalized/payment_failed event must not reopen them.
-        if (in_array($current, [InvoiceStatus::Paid, InvoiceStatus::Void], true)) {
-            $status = $current;
-        }
 
         $subscriptionId = $stripeInvoice['subscription']
             ?? $stripeInvoice['parent']['subscription_details']['subscription'] // API 2025-03+
@@ -309,9 +314,21 @@ final class HandleStripeWebhook
         $invoice->fill([
             'user_id' => $user->id,
             // Only this customer's subscription, never another account's.
-            'subscription_id' => $subscriptionId
+            'subscription_id' => ($subscriptionId
                 ? Subscription::where('provider_id', $subscriptionId)->where('driver', 'stripe')->where('user_id', $user->id)->value('id')
-                : null,
+                : null) ?? $invoice->subscription_id,
+        ]);
+
+        // Paid and void are final: a late finalized/payment_failed event carries an older snapshot,
+        // so it may link the subscription and finish the PDF but must not reopen or re-price the invoice.
+        if (in_array($current, [InvoiceStatus::Paid, InvoiceStatus::Void], true)) {
+            $invoice->save();
+            $this->generatePaidPdf($invoice, $current);
+
+            return $invoice;
+        }
+
+        $invoice->fill([
             'status' => $status->value,
             'subtotal' => $stripeInvoice['subtotal'] ?? 0,
             'tax' => $stripeInvoice['tax'] ?? 0,
@@ -327,12 +344,19 @@ final class HandleStripeWebhook
             'provider_response' => $stripeInvoice,
         ])->save();
 
-        // An open or failed invoice is not a receipt; the PDF is made once, when it is paid.
+        $this->generatePaidPdf($invoice, $status);
+
+        return $invoice;
+    }
+
+    /**
+     * An open or failed invoice is not a receipt; the PDF is made once, when it is paid.
+     */
+    private function generatePaidPdf(Invoice $invoice, InvoiceStatus $status): void
+    {
         if ($status === InvoiceStatus::Paid && !$invoice->hasPdf()) {
             $this->pdfGenerator->generate($invoice);
         }
-
-        return $invoice;
     }
 
     private function handleInvoicePaymentFailed(array $data): void

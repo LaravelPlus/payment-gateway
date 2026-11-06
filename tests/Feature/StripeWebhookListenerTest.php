@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace LaravelPlus\PaymentGateway\Tests\Feature;
 
 use Illuminate\Foundation\Auth\User;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
@@ -219,7 +220,45 @@ class StripeWebhookListenerTest extends TestCase
         $this->dispatch('invoice.finalized', $this->stripeInvoice('open'));
         $this->dispatch('invoice.payment_failed', $this->stripeInvoice('open'));
 
-        $this->assertSame('paid', Invoice::where('provider_id', 'in_9')->sole()->getStatusEnum()->value);
+        $invoice = Invoice::where('provider_id', 'in_9')->sole();
+        $this->assertSame('paid', $invoice->getStatusEnum()->value);
+        // The stale open snapshots must not rewrite what was paid.
+        $this->assertSame([900, 'paid'], [(int) $invoice->amount_paid, $invoice->provider_response['status']]);
+    }
+
+    public function test_a_late_event_still_links_the_subscription_of_a_paid_invoice(): void
+    {
+        Storage::fake();
+        $user = $this->customer();
+
+        $this->dispatch('invoice.paid', $this->stripeInvoice('paid'));
+        $subscription = $this->stripeSubscriptionRow($user);
+        $this->dispatch('invoice.finalized', $this->stripeInvoice('open'));
+
+        $this->assertSame($subscription->id, Invoice::where('provider_id', 'in_9')->value('subscription_id'));
+    }
+
+    public function test_invoice_sync_waits_for_the_per_invoice_lock_and_writes_nothing_without_it(): void
+    {
+        config(['payment-gateway.webhooks.lock_wait' => 0]);
+        Storage::fake();
+        $this->customer();
+
+        // Another worker is mid-sync on this invoice.
+        $held = Cache::lock('payment-gateway:invoice-sync:in_9', 30);
+        $this->assertTrue($held->get());
+
+        try {
+            $this->dispatch('invoice.paid', $this->stripeInvoice('paid'));
+            $this->fail('synced without the lock');
+        } catch (\Illuminate\Contracts\Cache\LockTimeoutException) {
+            // A 5xx: Stripe retries once the other worker is done.
+            $this->assertSame(0, Invoice::where('provider_id', 'in_9')->count());
+        }
+
+        $held->release();
+        $this->dispatch('invoice.paid', $this->stripeInvoice('paid'));
+        $this->assertSame(1, Invoice::where('provider_id', 'in_9')->count());
     }
 
     public function test_a_duplicate_paid_event_creates_no_second_invoice_or_pdf(): void
