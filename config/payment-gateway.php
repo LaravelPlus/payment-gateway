@@ -128,6 +128,20 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Checkout
+    |--------------------------------------------------------------------------
+    |
+    | allowed_prices: provider Price IDs that checkout and createSubscription()
+    | accept, e.g. ['price_pro_monthly', 'price_credits_100']. Set it when any
+    | Price ID comes from a request; null accepts any Price.
+    |
+    */
+    'checkout' => [
+        'allowed_prices' => null,
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
     | Webhooks
     |--------------------------------------------------------------------------
     |
@@ -137,6 +151,9 @@ return [
     'webhooks' => [
         'path' => 'webhooks/payment',
         'middleware' => ['api'],
+        // Seconds an invoice webhook waits for another worker syncing the same invoice.
+        // Locks need a cache store shared by all workers (redis, database, memcached).
+        'lock_wait' => env('PAYMENT_WEBHOOK_LOCK_WAIT', 10),
     ],
 
     /*
@@ -276,8 +293,10 @@ return [
         // Route prefix for admin panel
         'prefix' => env('PAYMENT_ADMIN_PREFIX', 'admin/payments'),
 
-        // Middleware to apply to admin routes
-        'middleware' => ['web', 'auth', 'role:super-admin,admin'],
+        // Middleware for admin routes. payment-gateway.admin answers 404 unless the
+        // viewPaymentAdmin gate allows the user (default: hasRole super-admin|admin,
+        // as with spatie/laravel-permission). Redefine the gate to change it.
+        'middleware' => ['web', 'payment-gateway.admin'],
 
         // Dashboard settings
         'dashboard' => [

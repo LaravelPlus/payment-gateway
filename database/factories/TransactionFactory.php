@@ -25,13 +25,12 @@ final class TransactionFactory extends Factory
         return [
             'user_id' => null,
             'payment_customer_id' => null,
-            'subscription_id' => null,
             'driver' => $this->faker->randomElement(['stripe', 'paypal']),
             'provider_id' => 'txn_'.$this->faker->unique()->regexify('[A-Za-z0-9]{24}'),
             'amount' => $this->faker->numberBetween(1000, 100000), // 10.00 to 1000.00
             'currency' => 'USD',
             'status' => PaymentStatus::Succeeded->value,
-            'payment_method' => 'pm_'.$this->faker->regexify('[A-Za-z0-9]{24}'),
+            'provider_payment_method_id' => 'pm_'.$this->faker->regexify('[A-Za-z0-9]{24}'),
             'description' => $this->faker->sentence(),
             'metadata' => null,
             'provider_response' => [],
@@ -65,7 +64,7 @@ final class TransactionFactory extends Factory
     {
         return $this->state(fn (array $attributes) => [
             'status' => PaymentStatus::Failed->value,
-            'failure_reason' => $this->faker->sentence(),
+            'failure_message' => $this->faker->sentence(),
         ]);
     }
 
