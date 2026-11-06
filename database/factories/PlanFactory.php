@@ -26,7 +26,8 @@ final class PlanFactory extends Factory
 
         return [
             'name' => $name,
-            'slug' => mb_strtolower($name),
+            // Suffixed: slug is unique, and four names collide after a few plans.
+            'slug' => mb_strtolower($name).'-'.$this->faker->unique()->numerify('#####'),
             'description' => $this->faker->sentence(),
             'amount' => $amount,
             'currency' => 'USD',

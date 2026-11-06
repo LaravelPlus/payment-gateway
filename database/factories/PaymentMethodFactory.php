@@ -27,10 +27,10 @@ final class PaymentMethodFactory extends Factory
             'driver' => 'stripe',
             'provider_id' => 'pm_'.$this->faker->unique()->regexify('[A-Za-z0-9]{24}'),
             'type' => 'card',
-            'brand' => $this->faker->randomElement(['visa', 'mastercard', 'amex', 'discover']),
-            'last_four' => $this->faker->numerify('####'),
-            'exp_month' => $this->faker->numberBetween(1, 12),
-            'exp_year' => $this->faker->numberBetween(2025, 2030),
+            'card_brand' => $this->faker->randomElement(['visa', 'mastercard', 'amex', 'discover']),
+            'card_last_four' => $this->faker->numerify('####'),
+            'card_exp_month' => $this->faker->numberBetween(1, 12),
+            'card_exp_year' => $this->faker->numberBetween(2025, 2030),
             'is_default' => false,
             'billing_address' => [
                 'name' => $this->faker->name(),
@@ -41,7 +41,6 @@ final class PaymentMethodFactory extends Factory
                 'country' => 'US',
             ],
             'metadata' => null,
-            'provider_response' => [],
         ];
     }
 
@@ -61,8 +60,8 @@ final class PaymentMethodFactory extends Factory
     public function visa(): static
     {
         return $this->state(fn (array $attributes) => [
-            'brand' => 'visa',
-            'last_four' => '4242',
+            'card_brand' => 'visa',
+            'card_last_four' => '4242',
         ]);
     }
 
@@ -72,8 +71,8 @@ final class PaymentMethodFactory extends Factory
     public function mastercard(): static
     {
         return $this->state(fn (array $attributes) => [
-            'brand' => 'mastercard',
-            'last_four' => '5556',
+            'card_brand' => 'mastercard',
+            'card_last_four' => '5556',
         ]);
     }
 
@@ -83,8 +82,8 @@ final class PaymentMethodFactory extends Factory
     public function amex(): static
     {
         return $this->state(fn (array $attributes) => [
-            'brand' => 'amex',
-            'last_four' => '8431',
+            'card_brand' => 'amex',
+            'card_last_four' => '8431',
         ]);
     }
 
@@ -94,8 +93,8 @@ final class PaymentMethodFactory extends Factory
     public function expired(): static
     {
         return $this->state(fn (array $attributes) => [
-            'exp_month' => 12,
-            'exp_year' => 2020,
+            'card_exp_month' => 12,
+            'card_exp_year' => 2020,
         ]);
     }
 }
