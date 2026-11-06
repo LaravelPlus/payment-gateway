@@ -598,6 +598,8 @@ final class PayPalGateway extends AbstractPaymentGateway implements SupportsCust
 
             $params = [
                 'plan_id' => $planId,
+                // Lets the webhook find the local customer before PayPal's payer_id is known to us.
+                'custom_id' => mb_substr((string) ($options['custom_id'] ?? $customer->id), 0, 127),
                 'subscriber' => [
                     'name' => ['given_name' => $customer->name ?? ''],
                     'email_address' => $customer->email,
