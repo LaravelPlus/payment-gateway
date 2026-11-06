@@ -14,6 +14,7 @@ use LaravelPlus\PaymentGateway\DTOs\PaymentIntent;
 use LaravelPlus\PaymentGateway\DTOs\PaymentResult;
 use LaravelPlus\PaymentGateway\DTOs\WebhookPayload;
 use LaravelPlus\PaymentGateway\Enums\PaymentStatus;
+use LaravelPlus\PaymentGateway\Exceptions\InvalidWebhookPayloadException;
 use LaravelPlus\PaymentGateway\Exceptions\PaymentException;
 
 /**
@@ -304,11 +305,29 @@ final class CryptoGateway extends AbstractPaymentGateway implements SupportsWebh
     {
         $payload = json_decode($request->getContent(), true);
 
+        if (!is_array($payload)) {
+            throw InvalidWebhookPayloadException::because('Crypto event must be a JSON object');
+        }
+
+        $type = $payload['event']['type'] ?? $payload['type'] ?? 'unknown';
+        $data = $payload['event']['data'] ?? $payload['data'] ?? [];
+
+        if (!is_string($type) || !is_array($data)) {
+            throw InvalidWebhookPayloadException::because('Crypto event needs a string type and an object at data');
+        }
+
+        // No id: derive one from the bytes, so a redelivery of the same event
+        // hits the replay check instead of getting a fresh random id each time.
+        $id = $payload['id'] ?? $payload['event']['id'] ?? 'sha256:'.hash('sha256', $request->getContent());
+        if (!is_string($id) && !is_int($id)) {
+            throw InvalidWebhookPayloadException::because('Crypto event id must be a string or integer');
+        }
+
         return new WebhookPayload(
-            id: $payload['id'] ?? $payload['event']['id'] ?? Str::random(16),
-            type: $payload['event']['type'] ?? $payload['type'] ?? 'unknown',
+            id: (string) $id,
+            type: $type,
             driver: $this->getName(),
-            data: $payload['event']['data'] ?? $payload['data'] ?? [],
+            data: $data,
             raw: $payload,
         );
     }
