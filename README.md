@@ -252,7 +252,7 @@ A refused trial throws `PaymentException`.
 
 - `SubscriptionTrialStarted` - subscription entered a trial
 - `SubscriptionTrialWillEnd` - a reminder lead (`notifications.trial_reminder_days`, default `[3, 1]`) was reached; has `daysRemaining`
-- `SubscriptionTrialEnded` - trial is over; `$event->subscription->status` is `Active` (converted), `PastDue`/`Unpaid`/`Incomplete` (first charge failed), `Canceled` or `Paused`
+- `SubscriptionTrialEnded` - trial is over; `$event->subscription->status` is `Active` (first invoice created), `Canceled` or `Paused`. On Stripe a failed first charge arrives afterwards as a separate `active → past_due` update; read the synced status later, not at this event
 
 Reminders come from Stripe's `trial_will_end` webhook and the `payment-gateway:trial-reminders`
 command, sharing one ledger. When several leads are due at once (a 1-day trial with

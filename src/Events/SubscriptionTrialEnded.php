@@ -11,8 +11,9 @@ use LaravelPlus\PaymentGateway\DTOs\Subscription;
 
 /**
  * Dispatched once when a trial ends, whatever the outcome. $subscription->status says which:
- * Active (converted, first invoice paid), PastDue/Unpaid/Incomplete (first charge failed),
- * Canceled or Paused (no payment method, per trial_end_behavior, or canceled during the trial).
+ * Active (the first invoice was created; on Stripe it may still fail and move the subscription
+ * to PastDue in a later webhook), Canceled or Paused (no payment
+ * method, per trial_end_behavior, or canceled during the trial).
  */
 final class SubscriptionTrialEnded
 {
