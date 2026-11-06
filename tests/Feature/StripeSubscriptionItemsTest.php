@@ -267,4 +267,73 @@ class StripeSubscriptionItemsTest extends TestCase
         $this->expectException(PaymentException::class);
         $this->gateway()->updateSubscriptionItems('sub_1', [['id' => 'si_seat', 'quantity' => 4]]);
     }
+
+    // gh-31: one-time purchases through the same hosted Checkout.
+
+    #[Test]
+    public function payment_mode_checkout_sells_one_time_items_and_tags_the_payment(): void
+    {
+        $params = $this->checkout(['mode' => 'payment', 'quantity' => 2, 'items' => [['price_id' => 'price_credits_100', 'quantity' => 1]], 'metadata' => ['order' => 'o_1']]);
+
+        $this->assertSame('payment', $params['mode']);
+        $this->assertSame([['price' => 'price_base', 'quantity' => 2], ['price' => 'price_credits_100', 'quantity' => 1]], $params['line_items']);
+        // Fulfilment comes from the payment webhook, which sees the PaymentIntent, so it carries the metadata.
+        $this->assertSame(['order' => 'o_1'], $params['payment_intent_data']['metadata']);
+        $this->assertSame(['order' => 'o_1'], $params['metadata']);
+        $this->assertArrayNotHasKey('subscription_data', $params);
+    }
+
+    #[Test]
+    public function subscription_stays_the_default_mode(): void
+    {
+        $params = $this->checkout();
+
+        $this->assertSame('subscription', $params['mode']);
+        $this->assertArrayNotHasKey('payment_intent_data', $params);
+    }
+
+    #[Test]
+    #[DataProvider('badPaymentModeOptions')]
+    public function subscription_only_options_are_refused_in_payment_mode(array $options): void
+    {
+        try {
+            $this->checkout($options + ['mode' => 'payment']);
+            $this->fail('accepted '.json_encode($options));
+        } catch (PaymentException) {
+            $this->assertSame([], $this->calls);
+        }
+    }
+
+    public static function badPaymentModeOptions(): array
+    {
+        return [
+            'trial' => [['trial_days' => 7]],
+            'card collection' => [['payment_method_collection' => 'if_required']],
+            'unknown mode' => [['mode' => 'setup']],
+        ];
+    }
+
+    #[Test]
+    public function an_allowed_catalog_refuses_any_other_price_on_every_path(): void
+    {
+        config(['payment-gateway.checkout.allowed_prices' => ['price_base', 'price_seat']]);
+
+        $this->checkout(['items' => [['price_id' => 'price_seat', 'quantity' => 2]]]);
+        $this->assertCount(1, $this->calls);
+
+        foreach ([
+            fn () => $this->checkout(['mode' => 'payment', 'items' => [['price_id' => 'price_from_the_browser', 'quantity' => 1]]]),
+            fn () => $this->gateway()->createCheckoutSession($this->customer(), 'price_other', 'https://app.test/ok', 'https://app.test/no'),
+            fn () => $this->gateway()->createSubscription($this->customer(), 'price_other', 'pm_1'),
+        ] as $attempt) {
+            try {
+                $attempt();
+                $this->fail('a price outside the catalog reached Stripe');
+            } catch (PaymentException $e) {
+                $this->assertStringContainsString('not in the allowed catalog', $e->getMessage());
+            }
+        }
+
+        $this->assertCount(1, $this->calls);
+    }
 }

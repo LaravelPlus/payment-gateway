@@ -241,6 +241,33 @@ Notes:
 - Recurring Prices only. Sell one-time add-ons through a separate payment Checkout, not as a subscription item.
 - Your app maps Prices to plans and entitlements. The webhook listener still syncs only the base item to the local `subscriptions` row (see #16). For anything per item, listen to `PaymentWebhookReceived` and read `$payload->data['items']`.
 
+### One-time purchases (Stripe Checkout)
+
+The same hosted Checkout sells one-time Prices, such as a product or a credit pack, when you pass `'mode' => 'payment'`:
+
+```php
+$session = $stripe->createCheckoutSession($customer, 'price_credits_100', $successUrl, $cancelUrl, [
+    'mode' => 'payment',
+    'quantity' => 2,
+    'metadata' => ['order' => $order->uuid],   // also copied onto the PaymentIntent
+]);
+
+return redirect($session->url);
+```
+
+**Grant nothing on the success redirect.** A browser can reach it without paying, and async methods settle later. Fulfil from `PaymentSucceeded` instead. It fires once per payment, from the signed `payment_intent.succeeded` / `charge.succeeded` webhooks, and the order metadata travels on the PaymentIntent. Trials and `payment_method_collection` are subscription-only, and payment mode rejects them.
+
+If Price IDs can come from a request, list your catalog. Checkout and `createSubscription()` then refuse any other Price before calling Stripe:
+
+```php
+// config/payment-gateway.php
+'checkout' => ['allowed_prices' => ['price_pro_monthly', 'price_seat_monthly', 'price_credits_100']],
+```
+
+Stripe itself rejects line items in different currencies, and a `PaymentException` reports the error.
+
+Hosted Checkout (`SupportsCheckoutSessions`) is **Stripe only**. PayPal, crypto, bank transfer and cash on delivery use their own `createPaymentIntent()` / `charge()` flows.
+
 ### Free trials
 
 A trial is a Stripe subscription-wide free period. It is independent of the Price,
