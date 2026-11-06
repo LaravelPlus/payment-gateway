@@ -301,4 +301,18 @@ class PayPalWebhookListenerTest extends TestCase
 
         $this->assertSame('expired', $sub->refresh()->status);
     }
+
+    public function test_a_partial_capture_refund_leaves_the_rest_paid(): void
+    {
+        $tx = $this->orderTransaction($this->customer());
+        $tx->update(['status' => 'succeeded']);
+
+        $this->dispatch('PAYMENT.CAPTURE.REFUNDED', [
+            'id' => 'REFUND-P', 'status' => 'COMPLETED', 'amount' => ['currency_code' => 'EUR', 'value' => '10.00'],
+            'supplementary_data' => ['related_ids' => ['order_id' => 'ORDER-1']],
+        ]);
+
+        $this->assertSame(['partially_refunded', 1000], [$tx->refresh()->status, (int) $tx->amount_refunded]);
+        $this->assertSame('completed', Refund::where('provider_id', 'REFUND-P')->value('status'));
+    }
 }

@@ -137,7 +137,7 @@ final class HandlePayPalWebhook
                 'user_id' => $transaction->user_id,
                 'amount' => $this->parsePayPalAmount($data['amount'] ?? null),
                 'currency' => mb_strtoupper($data['amount']['currency_code'] ?? $transaction->currency),
-                'status' => 'completed',
+                'status' => $this->mapRefundStatus($data['status'] ?? 'COMPLETED'),
                 'reason' => $data['note_to_payer'] ?? null,
                 'provider_response' => $data,
             ]
@@ -147,7 +147,8 @@ final class HandlePayPalWebhook
             event(new RefundProcessed($refund->toDto()));
         }
 
-        $transaction->update(['status' => PaymentStatus::Refunded->value]);
+        // No forced "refunded": a partial refund leaves the rest paid. The Refund
+        // model derives refunded / partially_refunded from the amounts (gh-25).
     }
 
     private function handleOrderCompleted(array $data): void
@@ -240,7 +241,7 @@ final class HandlePayPalWebhook
                 'user_id' => $transaction->user_id,
                 'amount' => $this->parsePayPalAmount($data['amount'] ?? null),
                 'currency' => mb_strtoupper($data['amount']['currency'] ?? $transaction->currency),
-                'status' => 'completed',
+                'status' => $this->mapRefundStatus($data['state'] ?? 'completed'),
                 'provider_response' => $data,
             ]
         );
@@ -333,6 +334,20 @@ final class HandlePayPalWebhook
         }
 
         return $subscription;
+    }
+
+    /**
+     * PayPal refund status (v2 COMPLETED/PENDING/FAILED/CANCELLED, v1 sale state) to ours.
+     */
+    private function mapRefundStatus(string $status): string
+    {
+        return match (mb_strtoupper($status)) {
+            'COMPLETED' => 'completed',
+            'PENDING' => 'pending',
+            'FAILED' => 'failed',
+            'CANCELLED' => 'canceled',
+            default => 'pending',
+        };
     }
 
     /**
