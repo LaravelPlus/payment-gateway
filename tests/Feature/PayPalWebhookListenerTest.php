@@ -9,7 +9,6 @@ use Illuminate\Http\Client\Request as HttpRequest;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
 use LaravelPlus\PaymentGateway\DTOs\Customer;
 use LaravelPlus\PaymentGateway\DTOs\WebhookPayload;
@@ -48,7 +47,6 @@ class PayPalWebhookListenerTest extends TestCase
 
     private function customer(string $payerId = 'PAYER1'): User
     {
-        Schema::hasColumn('payment_customers', 'uuid') || Schema::table('payment_customers', fn ($table) => $table->uuid('uuid')->nullable());
 
         $user = User::forceCreate(['name' => 'A', 'email' => 'a@example.com', 'password' => 'x']);
         PaymentCustomer::create(['user_id' => $user->id, 'paypal_id' => $payerId, 'email' => $user->email]);

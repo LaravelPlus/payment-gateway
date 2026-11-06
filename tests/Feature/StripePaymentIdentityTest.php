@@ -7,7 +7,6 @@ namespace LaravelPlus\PaymentGateway\Tests\Feature;
 use Illuminate\Foundation\Auth\User;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
 use LaravelPlus\PaymentGateway\DTOs\WebhookPayload;
 use LaravelPlus\PaymentGateway\Events\PaymentFailed;
@@ -37,7 +36,6 @@ class StripePaymentIdentityTest extends TestCase
     {
         parent::setUp();
         Storage::fake();
-        Schema::hasColumn('payment_customers', 'uuid') || Schema::table('payment_customers', fn ($table) => $table->uuid('uuid')->nullable());
     }
 
     private function dispatch(string $type, array $object): void
