@@ -8,10 +8,12 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use LaravelPlus\PaymentGateway\Contracts\SupportsWebhooks;
 use LaravelPlus\PaymentGateway\Events\PaymentWebhookReceived;
 use LaravelPlus\PaymentGateway\Events\WebhookHandled;
 use LaravelPlus\PaymentGateway\Events\WebhookHandleFailed;
+use LaravelPlus\PaymentGateway\Exceptions\InvalidWebhookPayloadException;
 use LaravelPlus\PaymentGateway\Facades\Payment;
 use Throwable;
 
@@ -52,15 +54,22 @@ final class WebhookController extends Controller
             return response()->json(['error' => 'Invalid content type'], 415);
         }
 
-        // Validate request body size (max 1MB)
+        // Max 1MB. The header is only a cheap early-out: it is client-supplied
+        // and may be missing or wrong, so the real body length decides.
+        // ponytail: PHP has already buffered the body by now; a hard cap belongs
+        // in the web server (client_max_body_size / post_max_size).
         $maxSize = 1048576;
         if ((int) $request->header('Content-Length', '0') > $maxSize) {
             return response()->json(['error' => 'Payload too large'], 413);
         }
 
-        // Validate body is valid JSON
         $content = $request->getContent();
-        if (empty($content) || json_decode($content, true) === null) {
+        if (strlen($content) > $maxSize) {
+            return response()->json(['error' => 'Payload too large'], 413);
+        }
+
+        // Every provider sends a JSON object; arrays, scalars and null are not events.
+        if (!json_decode($content) instanceof \stdClass) {
             return response()->json(['error' => 'Invalid JSON payload'], 400);
         }
 
@@ -107,6 +116,17 @@ final class WebhookController extends Controller
             event(new WebhookHandled($payload, $result));
 
             return response()->json($result);
+        } catch (InvalidWebhookPayloadException $e) {
+            // Authentic but malformed: retrying the same bytes can't help, so 4xx.
+            // Log the reason only, never the body (it may carry personal data).
+            $id = json_decode($content, true)['id'] ?? null;
+            Log::warning('Rejected malformed webhook', [
+                'driver' => $driver,
+                'event' => is_string($id) ? substr($id, 0, 64) : null,
+                'reason' => $e->getMessage(),
+            ]);
+
+            return response()->json(['error' => 'Invalid webhook payload'], 400);
         } catch (Throwable $e) {
             // Dispatch failure event
             event(new WebhookHandleFailed($driver, $e));
