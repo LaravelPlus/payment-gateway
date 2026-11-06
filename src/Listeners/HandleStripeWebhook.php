@@ -8,6 +8,7 @@ use Stripe\StripeClient;
 use LaravelPlus\PaymentGateway\Services\PaymentNotificationService;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
+use LaravelPlus\PaymentGateway\Enums\InvoiceStatus;
 use LaravelPlus\PaymentGateway\Enums\PaymentStatus;
 use LaravelPlus\PaymentGateway\Enums\SubscriptionStatus;
 use LaravelPlus\PaymentGateway\Events\PaymentFailed;
@@ -65,9 +66,11 @@ final class HandleStripeWebhook
             'customer.subscription.trial_will_end' => $this->handleTrialWillEnd($data),
 
             // Invoice events
-            'invoice.paid' => $this->handleInvoicePaid($data),
+            'invoice.paid' => $this->syncInvoice($data, InvoiceStatus::Paid),
             'invoice.payment_failed' => $this->handleInvoicePaymentFailed($data),
-            'invoice.finalized' => $this->handleInvoiceFinalized($data),
+            'invoice.finalized' => $this->syncInvoice($data, InvoiceStatus::Open),
+            'invoice.voided' => $this->syncInvoice($data, InvoiceStatus::Void),
+            'invoice.marked_uncollectible' => $this->syncInvoice($data, InvoiceStatus::Uncollectible),
 
             // Dispute events
             'charge.dispute.created', 'charge.dispute.closed', 'radar.early_fraud_warning.created' => $this->handleDispute($data, $type),
@@ -90,11 +93,10 @@ final class HandleStripeWebhook
                 'provider_response' => $paymentIntent,
             ]);
 
-            // Create invoice
-            $invoice = Invoice::createFromTransaction($transaction);
-
-            // Generate PDF
-            $this->pdfGenerator->generate($invoice);
+            // A Stripe invoice's own events own its local invoice; a repeated event must not add a second one.
+            if (empty($paymentIntent['invoice']) && !Invoice::where('transaction_id', $transaction->id)->exists()) {
+                $this->pdfGenerator->generate(Invoice::createFromTransaction($transaction));
+            }
 
             event(new PaymentSucceeded($transaction->toDto()));
         }
@@ -274,31 +276,85 @@ final class HandleStripeWebhook
         }
     }
 
-    private function handleInvoicePaid(array $data): void
+    /**
+     * Upsert the one local invoice for a Stripe invoice, whatever order its events arrive in.
+     */
+    private function syncInvoice(array $stripeInvoice, InvoiceStatus $eventStatus): ?Invoice
     {
-        $stripeInvoice = $data;
+        $customerId = $stripeInvoice['customer'] ?? null;
+        $user = $this->findUserByCustomer($customerId);
 
-        // Update or create local invoice
-        $invoice = Invoice::updateOrCreate(
-            ['provider_id' => $stripeInvoice['id'], 'driver' => 'stripe'],
-            [
-                'user_id' => $this->findUserByCustomer($stripeInvoice['customer'])?->id,
-                'status' => 'paid',
-                'subtotal' => $stripeInvoice['subtotal'],
-                'tax' => $stripeInvoice['tax'] ?? 0,
-                'total' => $stripeInvoice['total'],
-                'amount_paid' => $stripeInvoice['amount_paid'],
-                'amount_due' => $stripeInvoice['amount_due'],
-                'currency' => mb_strtoupper($stripeInvoice['currency']),
-                'invoice_date' => now(),
-                'paid_at' => now(),
-                'line_items' => $this->mapStripeLineItems($stripeInvoice['lines']['data'] ?? []),
-                'provider_response' => $stripeInvoice,
-            ]
-        );
+        if (!$user) {
+            // ponytail: a log line is the reconciliation trail; add a table if unmatched invoices need a UI.
+            Log::warning('Stripe invoice for an unknown customer', ['invoice' => $stripeInvoice['id'], 'customer' => $customerId]);
 
-        // Generate PDF
-        if (!$invoice->hasPdf()) {
+            return null;
+        }
+
+        // finalized and paid often land milliseconds apart on different workers: without the lock
+        // both miss the row and insert one each. Needs a lock-capable cache shared by all workers
+        // (redis, database, memcached). If the lock can't be had in time, the 5xx makes Stripe retry.
+        return Cache::lock('payment-gateway:invoice-sync:'.$stripeInvoice['id'], 30)
+            ->block((int) config('payment-gateway.webhooks.lock_wait', 10), fn (): Invoice => $this->upsertInvoice($stripeInvoice, $eventStatus, $user));
+    }
+
+    /**
+     * Runs under the per-invoice lock, PDF included, so side effects happen once.
+     */
+    private function upsertInvoice(array $stripeInvoice, InvoiceStatus $eventStatus, object $user): Invoice
+    {
+        $invoice = Invoice::firstOrNew(['provider_id' => $stripeInvoice['id'], 'driver' => 'stripe']);
+        $status = InvoiceStatus::tryFrom((string) ($stripeInvoice['status'] ?? '')) ?? $eventStatus;
+        $current = $invoice->exists ? $invoice->getStatusEnum() : null;
+
+        $subscriptionId = $stripeInvoice['subscription']
+            ?? $stripeInvoice['parent']['subscription_details']['subscription'] // API 2025-03+
+            ?? null;
+
+        $invoice->fill([
+            'user_id' => $user->id,
+            // Only this customer's subscription, never another account's.
+            'subscription_id' => ($subscriptionId
+                ? Subscription::where('provider_id', $subscriptionId)->where('driver', 'stripe')->where('user_id', $user->id)->value('id')
+                : null) ?? $invoice->subscription_id,
+        ]);
+
+        // Paid and void are final: a late finalized/payment_failed event carries an older snapshot,
+        // so it may link the subscription and finish the PDF but must not reopen or re-price the invoice.
+        if (in_array($current, [InvoiceStatus::Paid, InvoiceStatus::Void], true)) {
+            $invoice->save();
+            $this->generatePaidPdf($invoice, $current);
+
+            return $invoice;
+        }
+
+        $invoice->fill([
+            'status' => $status->value,
+            'subtotal' => $stripeInvoice['subtotal'] ?? 0,
+            'tax' => $stripeInvoice['tax'] ?? 0,
+            'total' => $stripeInvoice['total'] ?? 0,
+            'amount_paid' => $stripeInvoice['amount_paid'] ?? 0,
+            'amount_due' => $stripeInvoice['amount_due'] ?? 0,
+            'currency' => mb_strtoupper((string) ($stripeInvoice['currency'] ?? '')),
+            'invoice_date' => isset($stripeInvoice['created']) ? \Carbon\Carbon::createFromTimestamp($stripeInvoice['created']) : ($invoice->invoice_date ?? now()),
+            'due_date' => isset($stripeInvoice['due_date']) ? \Carbon\Carbon::createFromTimestamp($stripeInvoice['due_date']) : null,
+            'paid_at' => $status === InvoiceStatus::Paid ? ($invoice->paid_at ?? now()) : null,
+            'voided_at' => $status === InvoiceStatus::Void ? ($invoice->voided_at ?? now()) : null,
+            'line_items' => $this->mapStripeLineItems($stripeInvoice['lines']['data'] ?? []),
+            'provider_response' => $stripeInvoice,
+        ])->save();
+
+        $this->generatePaidPdf($invoice, $status);
+
+        return $invoice;
+    }
+
+    /**
+     * An open or failed invoice is not a receipt; the PDF is made once, when it is paid.
+     */
+    private function generatePaidPdf(Invoice $invoice, InvoiceStatus $status): void
+    {
+        if ($status === InvoiceStatus::Paid && !$invoice->hasPdf()) {
             $this->pdfGenerator->generate($invoice);
         }
     }
@@ -307,9 +363,7 @@ final class HandleStripeWebhook
     {
         $stripeInvoice = $data;
 
-        Invoice::where('provider_id', $stripeInvoice['id'])
-            ->where('driver', 'stripe')
-            ->update(['status' => 'open']);
+        $this->syncInvoice($stripeInvoice, InvoiceStatus::Open);
 
         $user = $this->findUserByCustomer($stripeInvoice['customer'] ?? null);
 
@@ -337,15 +391,6 @@ final class HandleStripeWebhook
         ]);
 
         $this->notifications->sendDisputeAlert($type, $dispute);
-    }
-
-    private function handleInvoiceFinalized(array $data): void
-    {
-        $stripeInvoice = $data;
-
-        Invoice::where('provider_id', $stripeInvoice['id'])
-            ->where('driver', 'stripe')
-            ->update(['status' => 'open']);
     }
 
     /**
@@ -396,6 +441,14 @@ final class HandleStripeWebhook
                 'provider_response' => $stripeSubscription,
             ]
         )->save();
+
+        // Invoice events can beat customer.subscription.created; link the invoices that arrived first.
+        Invoice::where('driver', 'stripe')
+            ->where('user_id', $subscription->user_id)
+            ->whereNull('subscription_id')
+            ->where(fn ($q) => $q->where('provider_response->subscription', $stripeSubscription['id'])
+                ->orWhere('provider_response->parent->subscription_details->subscription', $stripeSubscription['id']))
+            ->update(['subscription_id' => $subscription->id]);
 
         if ($before !== $subscription->status) {
             $this->trials->transition($before, $subscription);
