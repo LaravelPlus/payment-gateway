@@ -187,15 +187,80 @@ use LaravelPlus\PaymentGateway\Facades\Payment;
 $stripe = Payment::driver('stripe');
 
 // Create a subscription
-$subscription = $stripe->createSubscription(
-    customerId: 'cus_xxx',
-    priceId: 'price_xxx',
-    trialDays: 14
-);
+$subscription = $stripe->createSubscription($customer, 'price_xxx', 'pm_xxx', [
+    'trial_days' => 14,
+]);
 
 // Cancel subscription
 $stripe->cancelSubscription($subscription->id);
 ```
+
+### Free trials
+
+A trial is a Stripe subscription-wide free period. It is independent of the Price,
+so one Price serves a 1, 7, 14, 30 or 40-day trial. No trial is added unless you ask for one.
+
+```php
+// Checkout: card optional, subscription paused if none was added by the end
+$session = $stripe->createCheckoutSession($customer, 'price_xxx', $successUrl, $cancelUrl, [
+    'trial_days' => 7,
+    'trial_end_behavior' => 'pause',          // cancel | pause | create_invoice
+    'payment_method_collection' => 'if_required', // or 'always' to take the card up front
+]);
+
+// Or an exact end date instead of a length (Checkout needs it at least 48h out)
+$stripe->createSubscription($customer, 'price_xxx', 'pm_xxx', ['trial_end' => now()->addDays(30)]);
+```
+
+| Option | Values |
+| --- | --- |
+| `trial_days` | whole number, 1 to `subscriptions.max_trial_days` (max 730). `null`/`0` = no trial |
+| `trial_end` | `DateTimeInterface` or unix timestamp; not together with `trial_days` |
+| `trial_end_behavior` | `cancel`, `pause`, `create_invoice`. Default `subscriptions.trial_end_behavior`, else Stripe's default `create_invoice` |
+| `payment_method_collection` | Checkout only: `always`, `if_required` |
+
+Invalid values throw `PaymentException` before Stripe is called.
+`trial_period_days` (the old Checkout option) still works but is deprecated; use `trial_days`.
+Changing plan with `updateSubscription()` never starts a new trial.
+
+Don't grant access on the Checkout success redirect. Grant it from the synced
+subscription (`$user->subscribed()`, `Subscription::onTrial()`) or from the events below.
+
+**Who may start a trial** is your rule, not the package's. Bind a `TrialEligibility`
+and every trial request is checked before it reaches Stripe. The `Customer` is the
+billing owner, so "one trial per company" works when one user has several:
+
+```php
+use LaravelPlus\PaymentGateway\Contracts\TrialEligibility;
+use LaravelPlus\PaymentGateway\DTOs\Customer;
+
+final class OneTrialPerCompany implements TrialEligibility
+{
+    public function allowsTrial(Customer $customer, string $priceId, array $options): bool
+    {
+        return ! Company::where('stripe_id', $customer->id)->value('trial_used');
+    }
+}
+
+// AppServiceProvider::register()
+$this->app->bind(TrialEligibility::class, OneTrialPerCompany::class);
+```
+
+A refused trial throws `PaymentException`.
+
+**Trial events**, each dispatched once even when Stripe redelivers webhooks:
+
+- `SubscriptionTrialStarted` - subscription entered a trial
+- `SubscriptionTrialWillEnd` - a reminder lead (`notifications.trial_reminder_days`, default `[3, 1]`) was reached; has `daysRemaining`
+- `SubscriptionTrialEnded` - trial is over; `$event->subscription->status` is `Active` (first invoice created), `Canceled` or `Paused`. On Stripe a failed first charge arrives afterwards as a separate `active → past_due` update; read the synced status later, not at this event
+
+Reminders come from Stripe's `trial_will_end` webhook and the `payment-gateway:trial-reminders`
+command, sharing one ledger. When several leads are due at once (a 1-day trial with
+`[3, 1]`) only the nearest is sent. The package mails `SubscriptionTrialEndingMail` unless
+`notifications.trial_ending` is off; listen to the event to use your own channel instead.
+
+Stripe's newer *Trial Offers* (paid or discounted intro periods, per item) are a
+different model and not supported yet.
 
 ### Using Billable Trait
 
@@ -267,6 +332,7 @@ protected $listen = [
 - `PaymentFailed` - Payment failed
 - `SubscriptionCreated` - New subscription created
 - `SubscriptionCanceled` - Subscription was canceled
+- `SubscriptionTrialStarted`, `SubscriptionTrialWillEnd`, `SubscriptionTrialEnded` - see [Free trials](#free-trials)
 - `RefundProcessed` - Refund was processed
 - `PaymentWebhookReceived` - Webhook received (before processing)
 - `WebhookHandled` - Webhook successfully processed
@@ -368,8 +434,8 @@ php artisan payment-gateway:install
 # Sync local plans to Stripe/PayPal
 php artisan payment-gateway:sync-plans --driver=stripe
 
-# Send trial ending reminders (run daily via scheduler)
-php artisan payment-gateway:trial-reminders --days=3
+# Dispatch trial-ending reminders that are due (leads from notifications.trial_reminder_days)
+php artisan payment-gateway:trial-reminders
 
 # Cleanup expired subscriptions
 php artisan payment-gateway:cleanup-subscriptions
@@ -378,8 +444,8 @@ php artisan payment-gateway:cleanup-subscriptions
 Add to your scheduler (`app/Console/Kernel.php` or `routes/console.php`):
 
 ```php
-Schedule::command('payment-gateway:trial-reminders --days=3')->daily();
-Schedule::command('payment-gateway:trial-reminders --days=1')->daily();
+// Hourly so 1-day trials are reminded in time; each reminder is sent once however often it runs.
+Schedule::command('payment-gateway:trial-reminders')->hourly();
 Schedule::command('payment-gateway:cleanup-subscriptions')->daily();
 ```
 

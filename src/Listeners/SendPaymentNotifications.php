@@ -9,6 +9,7 @@ use LaravelPlus\PaymentGateway\Events\PaymentSucceeded;
 use LaravelPlus\PaymentGateway\Events\RefundProcessed;
 use LaravelPlus\PaymentGateway\Events\SubscriptionCanceled;
 use LaravelPlus\PaymentGateway\Events\SubscriptionCreated;
+use LaravelPlus\PaymentGateway\Events\SubscriptionTrialWillEnd;
 use LaravelPlus\PaymentGateway\Models\Invoice;
 use LaravelPlus\PaymentGateway\Models\Refund;
 use LaravelPlus\PaymentGateway\Models\Subscription;
@@ -74,6 +75,18 @@ final class SendPaymentNotifications
     }
 
     /**
+     * Handle trial ending reminders (no mail when notifications.trial_ending is off).
+     */
+    public function handleTrialWillEnd(SubscriptionTrialWillEnd $event): void
+    {
+        $subscription = Subscription::where('provider_id', $event->subscription->id)->first();
+
+        if ($subscription) {
+            $this->notificationService->sendTrialEndingReminder($subscription, $event->daysRemaining);
+        }
+    }
+
+    /**
      * Handle refund processed events.
      */
     public function handleRefundProcessed(RefundProcessed $event): void
@@ -97,6 +110,7 @@ final class SendPaymentNotifications
             PaymentFailed::class => 'handlePaymentFailed',
             SubscriptionCreated::class => 'handleSubscriptionCreated',
             SubscriptionCanceled::class => 'handleSubscriptionCanceled',
+            SubscriptionTrialWillEnd::class => 'handleTrialWillEnd',
             RefundProcessed::class => 'handleRefundProcessed',
         ];
     }

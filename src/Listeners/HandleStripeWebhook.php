@@ -21,6 +21,7 @@ use LaravelPlus\PaymentGateway\Models\Refund;
 use LaravelPlus\PaymentGateway\Models\Subscription;
 use LaravelPlus\PaymentGateway\Models\Transaction;
 use LaravelPlus\PaymentGateway\Services\InvoicePdfGenerator;
+use LaravelPlus\PaymentGateway\Services\TrialLifecycle;
 
 /**
  * Handle Stripe webhook events and update database accordingly.
@@ -30,6 +31,7 @@ final class HandleStripeWebhook
     public function __construct(
         private readonly InvoicePdfGenerator $pdfGenerator,
         private readonly PaymentNotificationService $notifications,
+        private readonly TrialLifecycle $trials,
     ) {}
 
     /**
@@ -244,6 +246,8 @@ final class HandleStripeWebhook
             ->first();
 
         if ($subscription) {
+            $before = $subscription->status;
+
             $subscription->update([
                 'status' => SubscriptionStatus::Canceled->value,
                 'canceled_at' => now(),
@@ -251,6 +255,7 @@ final class HandleStripeWebhook
             ]);
 
             event(new SubscriptionCanceled($subscription->toDto()));
+            $this->trials->transition($before, $subscription);
         }
     }
 
@@ -263,11 +268,9 @@ final class HandleStripeWebhook
             ->first();
 
         if ($subscription) {
-            // You could dispatch a notification here
-            Log::info('Trial ending soon', [
-                'subscription_id' => $subscription->id,
-                'trial_end' => $subscription->trial_end,
-            ]);
+            // Stripe sends this 3 days out (at once for shorter trials). It shares the
+            // scheduler's reminder ledger, so the customer is reminded once per lead.
+            $this->trials->remind($subscription);
         }
     }
 
@@ -353,6 +356,7 @@ final class HandleStripeWebhook
         $user = $this->findUserByCustomer($stripeSubscription['customer']);
 
         $subscription = Subscription::firstOrNew(['provider_id' => $stripeSubscription['id'], 'driver' => 'stripe']);
+        $before = $subscription->status;
 
         // Required on create; never overwritten, because the app may have set it.
         if (! $subscription->exists) {
@@ -386,6 +390,10 @@ final class HandleStripeWebhook
                 'provider_response' => $stripeSubscription,
             ]
         )->save();
+
+        if ($before !== $subscription->status) {
+            $this->trials->transition($before, $subscription);
+        }
 
         return $subscription;
     }

@@ -103,6 +103,13 @@ return [
             60 => '60 days (2 months)',
         ],
 
+        // Longest trial the gateway accepts (Stripe's own ceiling is 730)
+        'max_trial_days' => env('SUBSCRIPTION_MAX_TRIAL_DAYS', 730),
+
+        // When a trial ends without a payment method: cancel | pause | create_invoice.
+        // null leaves Stripe's default (create_invoice). Per-call option: trial_end_behavior.
+        'trial_end_behavior' => env('SUBSCRIPTION_TRIAL_END_BEHAVIOR'),
+
         // Allow free plans (amount = 0)
         'allow_free_plans' => env('SUBSCRIPTION_ALLOW_FREE', true),
 
