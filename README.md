@@ -195,6 +195,52 @@ $subscription = $stripe->createSubscription($customer, 'price_xxx', 'pm_xxx', [
 $stripe->cancelSubscription($subscription->id);
 ```
 
+### Multiple items and seat quantities (Stripe)
+
+The Price you pass stays the base item. Add more recurring Prices with `items`, and set the base quantity with `quantity`. The same options work for `createCheckoutSession()` and `createSubscription()`:
+
+```php
+$session = $stripe->createCheckoutSession($customer, 'price_base_monthly', $successUrl, $cancelUrl, [
+    'items' => [['price_id' => 'price_seat_monthly', 'quantity' => 3]],
+]);
+```
+
+Only Price IDs and positive whole quantities are accepted. Amounts always come from the Prices in Stripe, never from the caller. Each Price may appear once.
+
+The returned `Subscription` lists every item:
+
+```php
+$sub = $stripe->getSubscription('sub_xxx');
+
+$sub->items;                                       // list<SubscriptionItem>
+$sub->itemForPrice('price_seat_monthly')->quantity; // 3
+$sub->planId;                                      // first (base) item's Price
+$sub->amount;                                      // recurring total: sum of unit amount × quantity
+```
+
+Change items by ID with `updateSubscriptionItems()`. Items you don't list are untouched, so changing seats never changes the base plan:
+
+```php
+$seat = $sub->itemForPrice('price_seat_monthly');
+
+$stripe->updateSubscriptionItems($sub->id, [
+    ['id' => $seat->id, 'quantity' => 5],                    // set seats (absolute, so a retry can't double it)
+    // ['id' => 'si_xxx', 'price_id' => 'price_base_annual'], // swap an item's Price
+    // ['id' => 'si_xxx', 'deleted' => true],                // remove an item
+    // ['price_id' => 'price_addon', 'quantity' => 1],       // add an item
+], [
+    'proration_behavior' => 'create_prorations', // default; or 'none' | 'always_invoice'
+    'idempotency_key' => "seats:{$sub->id}:5",   // one per intended change
+]);
+```
+
+Notes:
+
+- `updateSubscription($id, $price)` still swaps the Price of a single-item subscription. On a multi-item subscription it throws instead of guessing which item to change.
+- Stripe checks whether the items' billing intervals can be combined. If they can't, the call fails with a `PaymentException`, and nothing changes.
+- Recurring Prices only. Sell one-time add-ons through a separate payment Checkout, not as a subscription item.
+- Your app maps Prices to plans and entitlements. The webhook listener still syncs only the base item to the local `subscriptions` row (see #16). For anything per item, listen to `PaymentWebhookReceived` and read `$payload->data['items']`.
+
 ### Free trials
 
 A trial is a Stripe subscription-wide free period. It is independent of the Price,
