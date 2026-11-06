@@ -230,6 +230,23 @@ class StripeWebhookListenerTest extends TestCase
         $this->assertSame(0, Subscription::where('provider_id', 'sub_16')->count());
     }
 
+    public function test_a_late_update_does_not_revive_a_canceled_subscription(): void
+    {
+        $this->customer();
+        $subscription = [
+            'id' => 'sub_late', 'object' => 'subscription', 'customer' => 'cus_1', 'status' => 'active', 'currency' => 'eur',
+            'metadata' => ['plan' => 'pro'],
+            'items' => ['data' => [['price' => ['id' => 'price_1', 'unit_amount' => 900, 'recurring' => ['interval' => 'month', 'interval_count' => 1]]]]],
+        ];
+
+        $this->dispatch('customer.subscription.created', $subscription);
+        $this->dispatch('customer.subscription.deleted', ['status' => 'canceled'] + $subscription);
+        // Stripe does not guarantee order: an older update can arrive after the delete.
+        $this->dispatch('customer.subscription.updated', ['cancel_at_period_end' => true] + $subscription);
+
+        $this->assertSame('canceled', Subscription::where('provider_id', 'sub_late')->value('status'));
+    }
+
     public function test_a_dispute_alerts_the_admin(): void
     {
         Mail::fake();
