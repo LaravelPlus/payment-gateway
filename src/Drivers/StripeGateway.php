@@ -19,11 +19,13 @@ use LaravelPlus\PaymentGateway\DTOs\PaymentMethodData;
 use LaravelPlus\PaymentGateway\DTOs\PaymentResult;
 use LaravelPlus\PaymentGateway\DTOs\Refund;
 use LaravelPlus\PaymentGateway\DTOs\Subscription;
+use LaravelPlus\PaymentGateway\DTOs\SubscriptionItem;
 use LaravelPlus\PaymentGateway\DTOs\SubscriptionPlan;
 use LaravelPlus\PaymentGateway\DTOs\Trial;
 use LaravelPlus\PaymentGateway\DTOs\WebhookPayload;
 use LaravelPlus\PaymentGateway\Enums\PaymentStatus;
 use LaravelPlus\PaymentGateway\Enums\SubscriptionStatus;
+use LaravelPlus\PaymentGateway\Exceptions\InvalidWebhookPayloadException;
 use LaravelPlus\PaymentGateway\Exceptions\PaymentException;
 
 /**
@@ -547,30 +549,13 @@ final class StripeGateway extends AbstractPaymentGateway implements SupportsChec
         try {
             $sub = $this->getClient()->subscriptions->create([
                 'customer' => $customer->id,
-                'items' => [['price' => $planId]],
+                'items' => $this->lineItems($planId, $options),
                 'default_payment_method' => $paymentMethodId,
                 'metadata' => $options['metadata'] ?? [],
                 ...$this->trialParams($customer, $planId, $options),
             ]);
 
-            $price = $sub->items->data[0]->price;
-
-            return new Subscription(
-                id: $sub->id,
-                customerId: $sub->customer,
-                planId: $planId,
-                status: $this->mapStripeSubscriptionStatus($sub->status),
-                amount: $price->unit_amount,
-                currency: mb_strtoupper($price->currency),
-                interval: $price->recurring->interval,
-                driver: $this->getName(),
-                currentPeriodStart: DateTimeImmutable::createFromFormat('U', (string) $sub->current_period_start),
-                currentPeriodEnd: DateTimeImmutable::createFromFormat('U', (string) $sub->current_period_end),
-                trialStart: $sub->trial_start ? DateTimeImmutable::createFromFormat('U', (string) $sub->trial_start) : null,
-                trialEnd: $sub->trial_end ? DateTimeImmutable::createFromFormat('U', (string) $sub->trial_end) : null,
-                cancelAtPeriodEnd: $sub->cancel_at_period_end,
-                raw: $sub->toArray(),
-            );
+            return $this->toSubscription($sub);
         } catch (\Stripe\Exception\ApiErrorException $e) {
             $this->throwException("Failed to create subscription: {$e->getMessage()}", $e->getStripeCode(), $e);
         }
@@ -579,27 +564,100 @@ final class StripeGateway extends AbstractPaymentGateway implements SupportsChec
     public function getSubscription(string $subscriptionId): ?Subscription
     {
         try {
-            $sub = $this->getClient()->subscriptions->retrieve($subscriptionId);
-            $price = $sub->items->data[0]->price;
-
-            return new Subscription(
-                id: $sub->id,
-                customerId: $sub->customer,
-                planId: $price->id,
-                status: $this->mapStripeSubscriptionStatus($sub->status),
-                amount: $price->unit_amount,
-                currency: mb_strtoupper($price->currency),
-                interval: $price->recurring->interval,
-                driver: $this->getName(),
-                currentPeriodStart: DateTimeImmutable::createFromFormat('U', (string) $sub->current_period_start),
-                currentPeriodEnd: DateTimeImmutable::createFromFormat('U', (string) $sub->current_period_end),
-                canceledAt: $sub->canceled_at ? DateTimeImmutable::createFromFormat('U', (string) $sub->canceled_at) : null,
-                cancelAtPeriodEnd: $sub->cancel_at_period_end,
-                raw: $sub->toArray(),
-            );
+            return $this->toSubscription($this->getClient()->subscriptions->retrieve($subscriptionId));
         } catch (\Stripe\Exception\ApiErrorException) {
             return null;
         }
+    }
+
+    /**
+     * Every item, not just the first: planId/currency/interval come from the
+     * first (base) item, amount is the recurring total across all of them.
+     */
+    private function toSubscription(\Stripe\Subscription $sub): Subscription
+    {
+        $items = array_map(fn ($item) => new SubscriptionItem(
+            id: $item->id,
+            priceId: $item->price->id,
+            quantity: (int) ($item->quantity ?? 1),
+            unitAmount: (int) $item->price->unit_amount,
+            currency: mb_strtoupper($item->price->currency),
+            interval: $item->price->recurring->interval,
+            intervalCount: (int) ($item->price->recurring->interval_count ?? 1),
+        ), $sub->items->data);
+
+        $first = $items[0];
+        $at = fn ($ts) => $ts ? DateTimeImmutable::createFromFormat('U', (string) $ts) : null;
+
+        return new Subscription(
+            id: $sub->id,
+            customerId: $sub->customer,
+            planId: $first->priceId,
+            status: $this->mapStripeSubscriptionStatus($sub->status),
+            amount: array_sum(array_map(fn (SubscriptionItem $item) => $item->unitAmount * $item->quantity, $items)),
+            currency: $first->currency,
+            interval: $first->interval,
+            driver: $this->getName(),
+            currentPeriodStart: $at($sub->current_period_start),
+            currentPeriodEnd: $at($sub->current_period_end),
+            trialStart: $at($sub->trial_start ?? null),
+            trialEnd: $at($sub->trial_end ?? null),
+            canceledAt: $at($sub->canceled_at ?? null),
+            cancelAtPeriodEnd: (bool) $sub->cancel_at_period_end,
+            raw: $sub->toArray(),
+            items: $items,
+        );
+    }
+
+    /**
+     * The base Price plus any extra recurring items from $options['items'].
+     * Only Price IDs and whole quantities pass: amounts always come from the
+     * Prices in Stripe, never from the caller.
+     *
+     * @param  array<string, mixed>  $options
+     * @return list<array{price: string, quantity: int}>
+     */
+    private function lineItems(string $priceId, array $options): array
+    {
+        $quantity = $options['quantity'] ?? 1;
+        if (!is_int($quantity) || $quantity < 1) {
+            $this->invalid('quantity must be a positive integer.');
+        }
+
+        $lines = [['price' => $priceId, 'quantity' => $quantity]];
+        $allowed = config('payment-gateway.checkout.allowed_prices');
+        $extra = $options['items'] ?? [];
+        if (!is_array($extra) || !array_is_list($extra)) {
+            $this->invalid('items must be a list of [price_id, quantity].');
+        }
+
+        foreach ($extra as $item) {
+            if (!is_array($item) || array_diff(array_keys($item), ['price_id', 'quantity']) !== []
+                || !is_string($item['price_id'] ?? null) || $item['price_id'] === ''
+                || !is_int($item['quantity'] ?? null) || $item['quantity'] < 1) {
+                $this->invalid('Each item needs a price_id and a positive integer quantity, and nothing else.');
+            }
+            if (in_array($item['price_id'], array_column($lines, 'price'), true)) {
+                $this->invalid("Price {$item['price_id']} appears more than once.");
+            }
+            $lines[] = ['price' => $item['price_id'], 'quantity' => $item['quantity']];
+        }
+
+        // An app that lists its catalog never lets a browser-supplied Price through.
+        if (is_array($allowed)) {
+            foreach ($lines as $line) {
+                if (!in_array($line['price'], $allowed, true)) {
+                    $this->invalid("Price {$line['price']} is not in the allowed catalog.");
+                }
+            }
+        }
+
+        return $lines;
+    }
+
+    private function invalid(string $message): never
+    {
+        throw new PaymentException($message, driver: $this->getName());
     }
 
     public function cancelSubscription(string $subscriptionId, bool $immediately = false): bool
@@ -648,6 +706,11 @@ final class StripeGateway extends AbstractPaymentGateway implements SupportsChec
         try {
             $sub = $this->getClient()->subscriptions->retrieve($subscriptionId);
 
+            // With a base + seat item, items[0] may be the wrong one to swap.
+            if (count($sub->items->data) > 1) {
+                $this->invalid('Subscription has several items; change them by ID with updateSubscriptionItems().');
+            }
+
             $this->getClient()->subscriptions->update($subscriptionId, [
                 'items' => [
                     ['id' => $sub->items->data[0]->id, 'price' => $newPlanId],
@@ -657,6 +720,74 @@ final class StripeGateway extends AbstractPaymentGateway implements SupportsChec
             return $this->getSubscription($subscriptionId);
         } catch (\Stripe\Exception\ApiErrorException $e) {
             $this->throwException("Failed to update subscription: {$e->getMessage()}", $e->getStripeCode(), $e);
+        }
+    }
+
+    /**
+     * Change subscription items by ID. Items not listed are left alone, so
+     * changing the seat count can never touch the base plan.
+     *
+     * Each change is one of:
+     *   ['id' => 'si_…', 'quantity' => 5]             set a quantity (absolute, so a retry can't double it)
+     *   ['id' => 'si_…', 'price_id' => 'price_…']     swap the item's Price (quantity optional)
+     *   ['id' => 'si_…', 'deleted' => true]            remove the item
+     *   ['price_id' => 'price_…', 'quantity' => 2]     add an item (quantity optional, Stripe defaults to 1)
+     *
+     * Options:
+     *   proration_behavior  create_prorations (default) | none | always_invoice
+     *   idempotency_key     one per intended change; Stripe replays the first result for a retry
+     *
+     * @param  list<array<string, mixed>>  $changes
+     * @param  array<string, mixed>  $options
+     */
+    public function updateSubscriptionItems(string $subscriptionId, array $changes, array $options = []): Subscription
+    {
+        $proration = $options['proration_behavior'] ?? 'create_prorations';
+        if (!in_array($proration, ['create_prorations', 'none', 'always_invoice'], true)) {
+            $this->invalid('proration_behavior must be create_prorations, none or always_invoice.');
+        }
+
+        if ($changes === [] || !array_is_list($changes)) {
+            $this->invalid('Pass a list of item changes.');
+        }
+
+        $items = [];
+        $seen = [];
+        foreach ($changes as $change) {
+            if (!is_array($change) || array_diff(array_keys($change), ['id', 'price_id', 'quantity', 'deleted']) !== []) {
+                $this->invalid('An item change may only set id, price_id, quantity or deleted.');
+            }
+
+            $id = $change['id'] ?? null;
+            $price = $change['price_id'] ?? null;
+            $quantity = $change['quantity'] ?? null;
+            $delete = array_key_exists('deleted', $change);
+
+            $valid = ($id === null || (is_string($id) && $id !== '' && !isset($seen[$id])))
+                && ($price === null || (is_string($price) && $price !== ''))
+                && ($quantity === null || (is_int($quantity) && $quantity >= 1))
+                && ($delete
+                    ? $change['deleted'] === true && $id !== null && $price === null && $quantity === null
+                    : ($id === null ? $price !== null : $price !== null || $quantity !== null));
+
+            if (!$valid) {
+                $this->invalid('Invalid item change: '.json_encode(array_keys($change)).'.');
+            }
+
+            $seen[$id] = true;
+            $items[] = array_filter(['id' => $id, 'price' => $price, 'quantity' => $quantity, 'deleted' => $delete ?: null], fn ($v) => $v !== null);
+        }
+
+        try {
+            $sub = $this->getClient()->subscriptions->update(
+                $subscriptionId,
+                ['items' => $items, 'proration_behavior' => $proration],
+                isset($options['idempotency_key']) ? ['idempotency_key' => (string) $options['idempotency_key']] : [],
+            );
+
+            return $this->toSubscription($sub);
+        } catch (\Stripe\Exception\ApiErrorException $e) {
+            $this->throwException("Failed to update subscription items: {$e->getMessage()}", $e->getStripeCode(), $e);
         }
     }
 
@@ -694,11 +825,19 @@ final class StripeGateway extends AbstractPaymentGateway implements SupportsChec
     {
         $payload = json_decode($request->getContent(), true);
 
+        if (!is_array($payload)
+            || !is_string($payload['id'] ?? null) || $payload['id'] === ''
+            || !is_string($payload['type'] ?? null) || $payload['type'] === ''
+            || !is_int($payload['created'] ?? null)
+            || !is_array($payload['data']['object'] ?? null)) {
+            throw InvalidWebhookPayloadException::because('Stripe event needs a string id and type, an integer created and an object at data.object');
+        }
+
         return new WebhookPayload(
             id: $payload['id'],
             type: $payload['type'],
             driver: $this->getName(),
-            data: $payload['data']['object'] ?? [],
+            data: $payload['data']['object'],
             createdAt: DateTimeImmutable::createFromFormat('U', (string) $payload['created']),
             raw: $payload,
         );
@@ -766,21 +905,35 @@ final class StripeGateway extends AbstractPaymentGateway implements SupportsChec
         string $cancelUrl,
         array $options = []
     ): CheckoutSession {
+        // 'subscription' (default) for recurring Prices; 'payment' for one-time
+        // purchases such as products or credit packs.
+        $mode = $options['mode'] ?? 'subscription';
+        if (!in_array($mode, ['subscription', 'payment'], true)) {
+            $this->invalid('mode must be subscription or payment.');
+        }
+
         $params = [
-            'mode' => 'subscription',
+            'mode' => $mode,
             'customer' => $customer->id,
-            'line_items' => [
-                [
-                    'price' => $priceId,
-                    'quantity' => 1,
-                ],
-            ],
+            'line_items' => $this->lineItems($priceId, $options),
             'success_url' => $successUrl,
             'cancel_url' => $cancelUrl,
         ];
 
+        if ($mode === 'payment') {
+            if (isset($options['payment_method_collection']) || Trial::fromOptions($options) !== null) {
+                $this->invalid('Trials and payment_method_collection only apply to subscription checkout.');
+            }
+
+            // Fulfil from the payment_intent.succeeded webhook, never the redirect: it sees
+            // the PaymentIntent, so the order metadata has to travel on it.
+            if (isset($options['metadata'])) {
+                $params['payment_intent_data'] = ['metadata' => $options['metadata']];
+            }
+        }
+
         // Checkout requires a trial_end at least 48 hours out.
-        $trial = $this->trialParams($customer, $priceId, $options, 48 * 3600);
+        $trial = $mode === 'subscription' ? $this->trialParams($customer, $priceId, $options, 48 * 3600) : [];
         if ($trial !== []) {
             $params['subscription_data'] = $trial;
         }

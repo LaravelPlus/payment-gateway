@@ -7,7 +7,6 @@ namespace LaravelPlus\PaymentGateway\Tests\Feature;
 use Illuminate\Foundation\Auth\User;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Mail;
-use Illuminate\Support\Facades\Schema;
 use LaravelPlus\PaymentGateway\DTOs\WebhookPayload;
 use LaravelPlus\PaymentGateway\Enums\SubscriptionStatus;
 use LaravelPlus\PaymentGateway\Events\PaymentWebhookReceived;
@@ -36,7 +35,6 @@ class TrialLifecycleTest extends TestCase
     {
         parent::setUp();
 
-        Schema::table('payment_customers', fn ($table) => $table->uuid('uuid')->nullable());
         $user = User::forceCreate(['name' => 'A', 'email' => 'a@example.com', 'password' => 'x']);
         PaymentCustomer::create(['user_id' => $user->id, 'stripe_id' => 'cus_1', 'email' => $user->email]);
     }

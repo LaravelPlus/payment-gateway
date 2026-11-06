@@ -64,9 +64,9 @@ class AbstractPaymentGatewayTest extends TestCase
                 return ['USD', 'EUR', 'GBP'];
             }
 
-            public function testEnsureCents(int|float $amount): int
+            public function testEnsureCents(int|float $amount, ?string $currency = null): int
             {
-                return $this->ensureCents($amount);
+                return $this->ensureCents($amount, $currency);
             }
 
             public function testFormatAmount(int $amountInCents, string $currency): string
@@ -100,6 +100,15 @@ class AbstractPaymentGatewayTest extends TestCase
         $result = $this->gateway->testEnsureCents(10.50);
 
         $this->assertSame(1050, $result);
+    }
+
+    /** gh-18: a decimal amount uses the currency's own minor units, not a fixed 100. */
+    #[Test]
+    public function testEnsureCentsUsesTheCurrencyMinorUnits(): void
+    {
+        $this->assertSame(1000, $this->gateway->testEnsureCents(1000.0, 'JPY'));
+        $this->assertSame(10500, $this->gateway->testEnsureCents(10.5, 'KWD'));
+        $this->assertSame(1050, $this->gateway->testEnsureCents(10.5, 'eur'));
     }
 
     #[Test]

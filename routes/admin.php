@@ -21,7 +21,7 @@ use LaravelPlus\PaymentGateway\Http\Controllers\Admin\TransactionController;
 */
 
 Route::prefix(config('payment-gateway.admin.prefix', 'admin/payments'))
-    ->middleware(config('payment-gateway.admin.middleware', ['web', 'auth', 'role:super-admin,admin']))
+    ->middleware(config('payment-gateway.admin.middleware', ['web', 'payment-gateway.admin']))
     ->name('admin.payments.')
     ->group(function (): void {
         // Dashboard

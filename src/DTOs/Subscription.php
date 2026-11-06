@@ -16,8 +16,12 @@ use LaravelPlus\PaymentGateway\Enums\SubscriptionStatus;
 final readonly class Subscription
 {
     /**
+     * $amount is the recurring total across all items (unit amount x quantity).
+     * $planId is the first item's Price; $items lists every item.
+     *
      * @param  array<string, mixed>  $metadata
      * @param  array<string, mixed>  $raw
+     * @param  list<SubscriptionItem>  $items
      */
     public function __construct(
         public string $id,
@@ -37,6 +41,7 @@ final readonly class Subscription
         public bool $cancelAtPeriodEnd = false,
         public array $metadata = [],
         public array $raw = [],
+        public array $items = [],
     ) {}
 
     /**
@@ -78,7 +83,22 @@ final readonly class Subscription
             cancelAtPeriodEnd: $data['cancel_at_period_end'] ?? false,
             metadata: $data['metadata'] ?? [],
             raw: $data['raw'] ?? [],
+            items: array_map(SubscriptionItem::fromArray(...), $data['items'] ?? []),
         );
+    }
+
+    /**
+     * The item billing the given Price, e.g. to read the seat quantity.
+     */
+    public function itemForPrice(string $priceId): ?SubscriptionItem
+    {
+        foreach ($this->items as $item) {
+            if ($item->priceId === $priceId) {
+                return $item;
+            }
+        }
+
+        return null;
     }
 
     /**
@@ -155,6 +175,7 @@ final readonly class Subscription
             'ended_at' => $this->endedAt?->format('c'),
             'cancel_at_period_end' => $this->cancelAtPeriodEnd,
             'metadata' => $this->metadata,
+            'items' => array_map(fn (SubscriptionItem $item) => $item->toArray(), $this->items),
         ];
     }
 }

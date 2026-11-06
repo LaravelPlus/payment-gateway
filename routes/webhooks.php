@@ -15,8 +15,8 @@ use LaravelPlus\PaymentGateway\Http\Controllers\WebhookController;
 |
 */
 
-Route::prefix('webhooks/payment')
-    ->middleware('api')
+Route::prefix(config('payment-gateway.webhooks.path', 'webhooks/payment'))
+    ->middleware(config('payment-gateway.webhooks.middleware', ['api']))
     ->group(function (): void {
         Route::post('/stripe', [WebhookController::class, 'stripe'])->name('payment.webhook.stripe');
         Route::post('/paypal', [WebhookController::class, 'paypal'])->name('payment.webhook.paypal');

@@ -23,12 +23,10 @@ final class PaymentCustomerFactory extends Factory
     {
         return [
             'user_id' => null,
-            'driver' => $this->faker->randomElement(['stripe', 'paypal']),
-            'provider_id' => 'cus_'.$this->faker->unique()->regexify('[A-Za-z0-9]{24}'),
+            'stripe_id' => 'cus_'.$this->faker->unique()->regexify('[A-Za-z0-9]{24}'),
             'email' => $this->faker->email(),
             'name' => $this->faker->name(),
             'metadata' => null,
-            'provider_response' => [],
         ];
     }
 
@@ -38,8 +36,8 @@ final class PaymentCustomerFactory extends Factory
     public function stripe(): static
     {
         return $this->state(fn (array $attributes) => [
-            'driver' => 'stripe',
-            'provider_id' => 'cus_'.$this->faker->unique()->regexify('[A-Za-z0-9]{24}'),
+            'stripe_id' => 'cus_'.$this->faker->unique()->regexify('[A-Za-z0-9]{24}'),
+            'paypal_id' => null,
         ]);
     }
 
@@ -49,8 +47,8 @@ final class PaymentCustomerFactory extends Factory
     public function paypal(): static
     {
         return $this->state(fn (array $attributes) => [
-            'driver' => 'paypal',
-            'provider_id' => $this->faker->unique()->regexify('[A-Z0-9]{13}'),
+            'stripe_id' => null,
+            'paypal_id' => $this->faker->unique()->regexify('[A-Z0-9]{13}'),
         ]);
     }
 }

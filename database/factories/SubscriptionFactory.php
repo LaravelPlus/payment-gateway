@@ -28,7 +28,7 @@ final class SubscriptionFactory extends Factory
         return [
             'user_id' => null,
             'payment_customer_id' => null,
-            'plan_id' => null,
+            'plan_id' => 'basic',
             'driver' => $this->faker->randomElement(['stripe', 'paypal']),
             'provider_id' => 'sub_'.$this->faker->unique()->regexify('[A-Za-z0-9]{24}'),
             'provider_plan_id' => 'price_'.$this->faker->regexify('[A-Za-z0-9]{24}'),

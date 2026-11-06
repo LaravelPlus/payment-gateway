@@ -23,7 +23,7 @@ final class RefundFactory extends Factory
     {
         return [
             'user_id' => null,
-            'transaction_id' => null,
+            'transaction_id' => \LaravelPlus\PaymentGateway\Models\Transaction::factory(),
             'driver' => $this->faker->randomElement(['stripe', 'paypal']),
             'provider_id' => 're_'.$this->faker->unique()->regexify('[A-Za-z0-9]{24}'),
             'amount' => $this->faker->numberBetween(100, 10000),

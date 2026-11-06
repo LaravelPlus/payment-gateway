@@ -21,8 +21,18 @@ Which driver supports what, and which behaviour is covered by tests: [docs/capab
 
 ## Requirements
 
-- PHP 8.2+
-- Laravel 11.x or 12.x
+- PHP 8.4+
+- Laravel 12.x or 13.x
+
+## Admin area
+
+The admin routes (`/admin/payments`, configurable through `payment-gateway.admin.prefix`) answer **404** to anyone the `viewPaymentAdmin` gate refuses, guests included, so the area isn't disclosed. By default the gate allows users whose `hasRole()` accepts `super-admin` or `admin`, which works with spatie/laravel-permission. A user model without `hasRole()` is refused. To change who gets in, redefine the gate in your `AppServiceProvider`:
+
+```php
+Gate::define('viewPaymentAdmin', fn ($user) => $user->is_staff);
+```
+
+Turn the area off with `payment-gateway.admin.enabled => false`.
 
 ## Installation
 
@@ -197,6 +207,79 @@ $subscription = $stripe->createSubscription($customer, 'price_xxx', 'pm_xxx', [
 $stripe->cancelSubscription($subscription->id);
 ```
 
+### Multiple items and seat quantities (Stripe)
+
+The Price you pass stays the base item. Add more recurring Prices with `items`, and set the base quantity with `quantity`. The same options work for `createCheckoutSession()` and `createSubscription()`:
+
+```php
+$session = $stripe->createCheckoutSession($customer, 'price_base_monthly', $successUrl, $cancelUrl, [
+    'items' => [['price_id' => 'price_seat_monthly', 'quantity' => 3]],
+]);
+```
+
+Only Price IDs and positive whole quantities are accepted. Amounts always come from the Prices in Stripe, never from the caller. Each Price may appear once.
+
+The returned `Subscription` lists every item:
+
+```php
+$sub = $stripe->getSubscription('sub_xxx');
+
+$sub->items;                                       // list<SubscriptionItem>
+$sub->itemForPrice('price_seat_monthly')->quantity; // 3
+$sub->planId;                                      // first (base) item's Price
+$sub->amount;                                      // recurring total: sum of unit amount × quantity
+```
+
+Change items by ID with `updateSubscriptionItems()`. Items you don't list are untouched, so changing seats never changes the base plan:
+
+```php
+$seat = $sub->itemForPrice('price_seat_monthly');
+
+$stripe->updateSubscriptionItems($sub->id, [
+    ['id' => $seat->id, 'quantity' => 5],                    // set seats (absolute, so a retry can't double it)
+    // ['id' => 'si_xxx', 'price_id' => 'price_base_annual'], // swap an item's Price
+    // ['id' => 'si_xxx', 'deleted' => true],                // remove an item
+    // ['price_id' => 'price_addon', 'quantity' => 1],       // add an item
+], [
+    'proration_behavior' => 'create_prorations', // default; or 'none' | 'always_invoice'
+    'idempotency_key' => "seats:{$sub->id}:5",   // one per intended change
+]);
+```
+
+Notes:
+
+- `updateSubscription($id, $price)` still swaps the Price of a single-item subscription. On a multi-item subscription it throws instead of guessing which item to change.
+- Stripe checks whether the items' billing intervals can be combined. If they can't, the call fails with a `PaymentException`, and nothing changes.
+- Recurring Prices only. Sell one-time add-ons through a separate payment Checkout, not as a subscription item.
+- Your app maps Prices to plans and entitlements. The webhook listener still syncs only the base item to the local `subscriptions` row (see #16). For anything per item, listen to `PaymentWebhookReceived` and read `$payload->data['items']`.
+
+### One-time purchases (Stripe Checkout)
+
+The same hosted Checkout sells one-time Prices, such as a product or a credit pack, when you pass `'mode' => 'payment'`:
+
+```php
+$session = $stripe->createCheckoutSession($customer, 'price_credits_100', $successUrl, $cancelUrl, [
+    'mode' => 'payment',
+    'quantity' => 2,
+    'metadata' => ['order' => $order->uuid],   // also copied onto the PaymentIntent
+]);
+
+return redirect($session->url);
+```
+
+**Grant nothing on the success redirect.** A browser can reach it without paying, and async methods settle later. Fulfil from `PaymentSucceeded` instead. It fires once per payment, from the signed `payment_intent.succeeded` / `charge.succeeded` webhooks, and the order metadata travels on the PaymentIntent. Trials and `payment_method_collection` are subscription-only, and payment mode rejects them.
+
+If Price IDs can come from a request, list your catalog. Checkout and `createSubscription()` then refuse any other Price before calling Stripe:
+
+```php
+// config/payment-gateway.php
+'checkout' => ['allowed_prices' => ['price_pro_monthly', 'price_seat_monthly', 'price_credits_100']],
+```
+
+Stripe itself rejects line items in different currencies, and a `PaymentException` reports the error.
+
+Hosted Checkout (`SupportsCheckoutSessions`) is **Stripe only**. PayPal, crypto, bank transfer and cash on delivery use their own `createPaymentIntent()` / `charge()` flows.
+
 ### Free trials
 
 A trial is a Stripe subscription-wide free period. It is independent of the Price,
@@ -311,6 +394,28 @@ Webhook routes are automatically registered at:
 - `POST /webhooks/payment/stripe`
 - `POST /webhooks/payment/paypal`
 - `POST /webhooks/payment/crypto`
+
+Responses tell the provider whether to retry:
+
+| Status | Meaning | Provider retries? |
+|---|---|---|
+| 200 | Handled, or a duplicate of an event already handled | No |
+| 400 | Not a JSON object, or signed but not a well-formed event for that provider | No |
+| 401 | Signature missing or invalid | Provider-dependent |
+| 413 | Body over 1 MB (measured on the real body, not `Content-Length`) | No |
+| 415 | Not `application/json` | No |
+| 500 | Handler or listener threw; the event claim is rolled back so the retry is processed | Yes |
+
+Also cap the body in your web server (`client_max_body_size`, `post_max_size`); PHP has already read it by the time the controller runs.
+
+**Stripe invoices.** Subscribe the Stripe endpoint to `invoice.finalized`, `invoice.paid`,
+`invoice.payment_failed`, `invoice.voided` and `invoice.marked_uncollectible`. Each Stripe invoice
+keeps exactly one local invoice, whatever order its events arrive in. Each sync holds a per-invoice
+`Cache::lock`, so use a lock-capable cache shared by all workers (redis, database or memcached; the wait
+is `payment-gateway.webhooks.lock_wait`, default 10 seconds). Paid and void are final, so a late
+`finalized` event never reopens one or overwrites its amounts. The PDF is generated once, when the invoice is paid.
+Invoices for a Stripe customer that matches no local user are not stored. Each one is logged as a
+warning (`Stripe invoice for an unknown customer`) so it can be reconciled.
 
 Listen to events in your `EventServiceProvider`:
 

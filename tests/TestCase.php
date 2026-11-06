@@ -22,7 +22,8 @@ abstract class TestCase extends BaseTestCase
 
     protected function defineEnvironment($app): void
     {
-        $app['config']->set('database.default', 'testing');
+        // CI also runs the suite on PostgreSQL (DB_CONNECTION=pgsql); locally it's in-memory SQLite.
+        $app['config']->set('database.default', env('DB_CONNECTION', 'testing'));
         $app['config']->set('payment-gateway.default', 'stripe');
         $app['config']->set('payment-gateway.currency', 'USD');
     }
