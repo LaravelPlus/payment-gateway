@@ -19,6 +19,7 @@ use LaravelPlus\PaymentGateway\Events\SubscriptionCanceled;
 use LaravelPlus\PaymentGateway\Events\SubscriptionCreated;
 use LaravelPlus\PaymentGateway\Models\Invoice;
 use LaravelPlus\PaymentGateway\Models\Refund;
+use LaravelPlus\PaymentGateway\Models\Plan;
 use LaravelPlus\PaymentGateway\Models\Subscription;
 use LaravelPlus\PaymentGateway\Models\Transaction;
 use LaravelPlus\PaymentGateway\Services\InvoicePdfGenerator;
@@ -398,6 +399,20 @@ final class HandleStripeWebhook
      */
     private function syncSubscription(array $stripeSubscription): Subscription
     {
+        $items = $stripeSubscription['items']['data'] ?? [];
+        if ($items === []) {
+            throw new \UnexpectedValueException("Stripe subscription {$stripeSubscription['id']} has no items, so its plan can't be resolved.");
+        }
+
+        // With a base + seat subscription the base item is the one a local Plan
+        // owns; without any Plan rows it is the first item, as before.
+        $plans = Plan::whereIn('stripe_price_id', array_filter(array_map(fn ($item) => $item['price']['id'] ?? null, $items)))
+            ->get()
+            ->keyBy('stripe_price_id');
+        $base = collect($items)->first(fn ($item) => $plans->has($item['price']['id'] ?? '')) ?? $items[0];
+        $price = $base['price'] ?? [];
+        $plan = $plans->get($price['id'] ?? '');
+
         $user = $this->findUserByCustomer($stripeSubscription['customer']);
 
         $subscription = Subscription::firstOrNew(['provider_id' => $stripeSubscription['id'], 'driver' => 'stripe']);
@@ -412,20 +427,24 @@ final class HandleStripeWebhook
         // Required on create; never overwritten, because the app may have set it.
         if (! $subscription->exists) {
             $subscription->plan_id = $stripeSubscription['metadata']['plan']
-                ?? $stripeSubscription['items']['data'][0]['price']['id']
-                ?? 'unknown';
+                ?? $plan?->slug
+                ?? $price['id']
+                ?? throw new \UnexpectedValueException("Stripe subscription {$stripeSubscription['id']} has no price on its base item.");
         }
 
         $subscription->fill(
             [
                 'user_id' => $user?->id,
-                'provider_plan_id' => $stripeSubscription['items']['data'][0]['price']['id'] ?? null,
+                // Derived from the Price, so it follows plan changes; plan_id above is the app's.
+                'payment_plan_id' => $plan?->id ?? $subscription->payment_plan_id,
+                'provider_plan_id' => $price['id'] ?? null,
                 'status' => $this->mapStripeStatus($stripeSubscription['status']),
-                'amount' => $stripeSubscription['items']['data'][0]['price']['unit_amount'] ?? 0,
+                'amount' => $price['unit_amount'] ?? 0,
                 'currency' => mb_strtoupper($stripeSubscription['currency']),
-                'interval' => $stripeSubscription['items']['data'][0]['price']['recurring']['interval'] ?? 'month',
-                'interval_count' => $stripeSubscription['items']['data'][0]['price']['recurring']['interval_count'] ?? 1,
-                'quantity' => $stripeSubscription['quantity'] ?? 1,
+                'interval' => $price['recurring']['interval'] ?? 'month',
+                'interval_count' => $price['recurring']['interval_count'] ?? 1,
+                // The top-level quantity is empty once items carry their own.
+                'quantity' => $base['quantity'] ?? $stripeSubscription['quantity'] ?? 1,
                 'current_period_start' => $this->periodTimestamp($stripeSubscription, 'current_period_start'),
                 'current_period_end' => $this->periodTimestamp($stripeSubscription, 'current_period_end'),
                 'trial_start' => isset($stripeSubscription['trial_start'])
