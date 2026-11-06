@@ -80,86 +80,130 @@ final class HandleStripeWebhook
         };
     }
 
+    /**
+     * A Stripe payment is one PaymentIntent plus its Charge. Both events land on
+     * the one transaction keyed by the PaymentIntent id (what createPaymentIntent()
+     * and charge() store); charges without an intent (legacy API) key on their own id.
+     */
     private function handlePaymentSucceeded(array $data): void
     {
-        $paymentIntent = $data;
-
-        $transaction = Transaction::where('provider_id', $paymentIntent['id'])
-            ->where('driver', 'stripe')
-            ->first();
+        $transaction = $this->paymentTransaction($data['id'], $data['latest_charge'] ?? null, $data);
 
         if ($transaction) {
-            $transaction->update([
-                'status' => PaymentStatus::Succeeded->value,
-                'provider_response' => $paymentIntent,
-            ]);
-
-            // A Stripe invoice's own events own its local invoice; a repeated event must not add a second one.
-            if (empty($paymentIntent['invoice']) && !Invoice::where('transaction_id', $transaction->id)->exists()) {
-                $this->pdfGenerator->generate(Invoice::createFromTransaction($transaction));
-            }
-
-            event(new PaymentSucceeded($transaction->toDto()));
+            $this->markSucceeded($transaction, $data, $data['invoice'] ?? null);
         }
     }
 
     private function handlePaymentFailed(array $data): void
     {
-        $paymentIntent = $data;
-
-        $transaction = Transaction::where('provider_id', $paymentIntent['id'])
-            ->where('driver', 'stripe')
-            ->first();
+        $transaction = $this->findPaymentTransaction([$data['id'], $data['latest_charge'] ?? null]);
 
         if ($transaction) {
-            $failureMessage = $paymentIntent['last_payment_error']['message'] ?? 'Payment failed';
-
-            $transaction->update([
-                'status' => PaymentStatus::Failed->value,
-                'failure_message' => $failureMessage,
-                'provider_response' => $paymentIntent,
-            ]);
-
-            event(new PaymentFailed($transaction->toDto(), $failureMessage));
+            $this->markFailed($transaction, $data['last_payment_error']['message'] ?? 'Payment failed', $data);
         }
     }
 
     private function handleChargeSucceeded(array $data): void
     {
-        $charge = $data;
+        $transaction = $this->paymentTransaction($data['payment_intent'] ?? $data['id'], $data['id'], $data);
 
-        // Find or create transaction
-        $transaction = Transaction::firstOrCreate(
-            ['provider_id' => $charge['id'], 'driver' => 'stripe'],
-            [
-                'user_id' => $this->findUserByCustomer($charge['customer'] ?? null)?->id,
-                'amount' => $charge['amount'],
-                'currency' => mb_strtoupper($charge['currency']),
-                'status' => PaymentStatus::Succeeded->value,
-                'payment_method' => $charge['payment_method'] ?? null,
-                'description' => $charge['description'] ?? null,
-                'provider_response' => $charge,
-            ]
-        );
-
-        if ($transaction->wasRecentlyCreated) {
-            event(new PaymentSucceeded($transaction->toDto()));
+        if ($transaction) {
+            $this->markSucceeded($transaction, $data, $data['invoice'] ?? null);
         }
     }
 
     private function handleChargeFailed(array $data): void
     {
-        $charge = $data;
-
-        $transaction = Transaction::where('provider_id', $charge['id'])
-            ->where('driver', 'stripe')
-            ->first();
+        $transaction = $this->findPaymentTransaction([$data['payment_intent'] ?? null, $data['id']]);
 
         if ($transaction) {
-            $transaction->update([
-                'status' => PaymentStatus::Failed->value,
-                'failure_message' => $charge['failure_message'] ?? 'Charge failed',
-            ]);
+            $this->markFailed($transaction, $data['failure_message'] ?? 'Charge failed', $data);
+        }
+    }
+
+    /**
+     * @param  array<int, mixed>  $ids
+     */
+    private function findPaymentTransaction(array $ids): ?Transaction
+    {
+        $ids = array_values(array_filter($ids, fn ($id) => is_string($id) && $id !== ''));
+
+        return $ids === [] ? null : Transaction::where('driver', 'stripe')->whereIn('provider_id', $ids)->first();
+    }
+
+    /**
+     * The payment's transaction, recorded under the PaymentIntent id if the app
+     * never started it, but only for a customer we know: a stranger's payment is
+     * logged for reconciliation, never fulfilled.
+     */
+    private function paymentTransaction(string $paymentId, ?string $chargeId, array $object): ?Transaction
+    {
+        // Lock per payment: the intent and charge events often arrive together, and both may need to create the row.
+        return Cache::lock('payment-gateway:stripe-payment:'.$paymentId, 30)
+            ->block((int) config('payment-gateway.webhooks.lock_wait', 10), function () use ($paymentId, $chargeId, $object): ?Transaction {
+                $transaction = $this->findPaymentTransaction([$paymentId, $chargeId]);
+                if ($transaction) {
+                    return $transaction;
+                }
+
+                $user = $this->findUserByCustomer($object['customer'] ?? null);
+                if (!$user) {
+                    Log::warning('Stripe payment from an unknown customer was not recorded', ['payment_intent' => $paymentId, 'customer' => $object['customer'] ?? null]);
+
+                    return null;
+                }
+
+                return Transaction::create([
+                    'user_id' => $user->id,
+                    'driver' => 'stripe',
+                    'provider_id' => $paymentId,
+                    'provider_payment_method_id' => $object['payment_method'] ?? null,
+                    'amount' => $object['amount'] ?? 0,
+                    'currency' => mb_strtoupper((string) ($object['currency'] ?? '')),
+                    'status' => PaymentStatus::Pending->value,
+                    'description' => $object['description'] ?? null,
+                    'provider_response' => $object,
+                ]);
+            });
+    }
+
+    /**
+     * The one place a Stripe payment becomes paid. The conditional update is the
+     * guard: only the event that flips it gets the invoice and PaymentSucceeded,
+     * and paid or refunded payments are never flipped again.
+     */
+    private function markSucceeded(Transaction $transaction, array $object, ?string $stripeInvoiceId): void
+    {
+        $flipped = Transaction::whereKey($transaction->id)
+            ->whereNotIn('status', [PaymentStatus::Succeeded->value, PaymentStatus::Refunded->value, PaymentStatus::PartiallyRefunded->value, PaymentStatus::Disputed->value])
+            ->update(['status' => PaymentStatus::Succeeded->value, 'failure_message' => null, 'provider_response' => json_encode($object)]);
+
+        if ($flipped === 0) {
+            return;
+        }
+
+        $transaction->refresh();
+
+        // A Stripe invoice's own events own its local invoice.
+        if ($stripeInvoiceId === null && !Invoice::where('transaction_id', $transaction->id)->exists()) {
+            $this->pdfGenerator->generate(Invoice::createFromTransaction($transaction));
+        }
+
+        event(new PaymentSucceeded($transaction->toDto()));
+    }
+
+    /**
+     * Failure only lands on a payment that isn't settled: a late failure event
+     * can't undo a success, and a repeat doesn't fire PaymentFailed twice.
+     */
+    private function markFailed(Transaction $transaction, string $message, array $object): void
+    {
+        $flipped = Transaction::whereKey($transaction->id)
+            ->whereIn('status', [PaymentStatus::Pending->value, PaymentStatus::Processing->value, PaymentStatus::RequiresAction->value, PaymentStatus::RequiresCapture->value])
+            ->update(['status' => PaymentStatus::Failed->value, 'failure_message' => $message, 'provider_response' => json_encode($object)]);
+
+        if ($flipped === 1) {
+            event(new PaymentFailed($transaction->refresh()->toDto(), $message));
         }
     }
 
@@ -167,19 +211,20 @@ final class HandleStripeWebhook
     {
         $charge = $data;
 
-        // A charge from before webhooks were enabled has no transaction yet.
-        $transaction = Transaction::firstOrCreate(
-            ['provider_id' => $charge['id'], 'driver' => 'stripe'],
-            [
+        // A charge from before webhooks were enabled has no transaction yet; it is
+        // recorded under the same PaymentIntent id the rest of the payment uses.
+        $transaction = $this->findPaymentTransaction([$charge['payment_intent'] ?? null, $charge['id']])
+            ?? Transaction::create([
                 'user_id' => $this->findUserByCustomer($charge['customer'] ?? null)?->id,
+                'driver' => 'stripe',
+                'provider_id' => $charge['payment_intent'] ?? $charge['id'],
+                'provider_payment_method_id' => $charge['payment_method'] ?? null,
                 'amount' => $charge['amount'],
                 'currency' => mb_strtoupper($charge['currency']),
                 'status' => PaymentStatus::Succeeded->value,
-                'payment_method' => $charge['payment_method'] ?? null,
                 'description' => $charge['description'] ?? null,
                 'provider_response' => $charge,
-            ]
-        );
+            ]);
 
         // Create refund records for each refund
         foreach ($charge['refunds']['data'] ?? $this->fetchRefunds($charge['id']) as $stripeRefund) {
