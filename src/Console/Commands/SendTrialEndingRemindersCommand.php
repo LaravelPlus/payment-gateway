@@ -7,66 +7,45 @@ namespace LaravelPlus\PaymentGateway\Console\Commands;
 use Illuminate\Console\Command;
 use LaravelPlus\PaymentGateway\Enums\SubscriptionStatus;
 use LaravelPlus\PaymentGateway\Models\Subscription;
-use LaravelPlus\PaymentGateway\Services\PaymentNotificationService;
+use LaravelPlus\PaymentGateway\Services\TrialLifecycle;
 
+/**
+ * Fires SubscriptionTrialWillEnd for every trial that has reached a reminder lead.
+ * Safe to run as often as you like (hourly suits 1-day trials): each reminder is
+ * claimed once, and a run that was missed is caught up by the next one.
+ */
 final class SendTrialEndingRemindersCommand extends Command
 {
     /**
-     * The name and signature of the console command.
-     *
      * @var string
      */
     protected $signature = 'payment-gateway:trial-reminders
-                            {--days=3 : Number of days before trial ends to send reminder}';
+                            {--days=* : Reminder leads in days (default: notifications.trial_reminder_days)}';
 
     /**
-     * The console command description.
-     *
      * @var string
      */
-    protected $description = 'Send reminder emails to users whose trial is ending soon';
+    protected $description = 'Dispatch trial-ending reminders that are due';
 
-    public function __construct(
-        private readonly PaymentNotificationService $notificationService,
-    ) {
-        parent::__construct();
-    }
-
-    /**
-     * Execute the console command.
-     */
-    public function handle(): int
+    public function handle(TrialLifecycle $trials): int
     {
-        $days = (int) $this->option('days');
-        $targetDate = now()->addDays($days)->startOfDay();
-
-        $this->info("Looking for subscriptions with trials ending on {$targetDate->format('Y-m-d')}...");
-
-        $subscriptions = Subscription::query()
-            ->where('status', SubscriptionStatus::Trialing->value)
-            ->whereNotNull('trial_end')
-            ->whereDate('trial_end', $targetDate)
-            ->with('user')
-            ->get();
-
-        if ($subscriptions->isEmpty()) {
-            $this->info('No subscriptions found with trials ending in '.$days.' days.');
-
+        $leads = $this->option('days') ?: (array) config('payment-gateway.notifications.trial_reminder_days', [3, 1]);
+        $leads = array_filter(array_map('intval', $leads), fn (int $d): bool => $d > 0);
+        if ($leads === []) {
             return self::SUCCESS;
         }
 
-        $this->info("Found {$subscriptions->count()} subscription(s) with trials ending in {$days} days.");
-
         $sent = 0;
-        foreach ($subscriptions as $subscription) {
-            if ($subscription->user && $subscription->user->email) {
-                $this->notificationService->sendTrialEndingReminder($subscription, $days);
-                $sent++;
-                $this->line("  - Sent reminder to {$subscription->user->email}");
-            }
-        }
 
-        $this->info("Sent {$sent} trial ending reminder(s).");
+        Subscription::query()
+            ->where('status', SubscriptionStatus::Trialing->value)
+            ->where('trial_end', '>', now())
+            ->where('trial_end', '<=', now()->addDays(max($leads)))
+            ->each(function (Subscription $subscription) use ($trials, $leads, &$sent): void {
+                $sent += (int) $trials->remind($subscription, $leads);
+            });
+
+        $this->info("Dispatched {$sent} trial ending reminder(s).");
 
         return self::SUCCESS;
     }

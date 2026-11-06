@@ -11,6 +11,7 @@ use LaravelPlus\PaymentGateway\Contracts\SupportsCustomers;
 use LaravelPlus\PaymentGateway\Contracts\SupportsRefunds;
 use LaravelPlus\PaymentGateway\Contracts\SupportsSubscriptions;
 use LaravelPlus\PaymentGateway\Contracts\SupportsWebhooks;
+use LaravelPlus\PaymentGateway\Contracts\TrialEligibility;
 use LaravelPlus\PaymentGateway\DTOs\CheckoutSession;
 use LaravelPlus\PaymentGateway\DTOs\Customer;
 use LaravelPlus\PaymentGateway\DTOs\PaymentIntent;
@@ -19,6 +20,7 @@ use LaravelPlus\PaymentGateway\DTOs\PaymentResult;
 use LaravelPlus\PaymentGateway\DTOs\Refund;
 use LaravelPlus\PaymentGateway\DTOs\Subscription;
 use LaravelPlus\PaymentGateway\DTOs\SubscriptionPlan;
+use LaravelPlus\PaymentGateway\DTOs\Trial;
 use LaravelPlus\PaymentGateway\DTOs\WebhookPayload;
 use LaravelPlus\PaymentGateway\Enums\PaymentStatus;
 use LaravelPlus\PaymentGateway\Enums\SubscriptionStatus;
@@ -547,8 +549,8 @@ final class StripeGateway extends AbstractPaymentGateway implements SupportsChec
                 'customer' => $customer->id,
                 'items' => [['price' => $planId]],
                 'default_payment_method' => $paymentMethodId,
-                'trial_period_days' => $options['trial_days'] ?? null,
                 'metadata' => $options['metadata'] ?? [],
+                ...$this->trialParams($customer, $planId, $options),
             ]);
 
             $price = $sub->items->data[0]->price;
@@ -777,10 +779,18 @@ final class StripeGateway extends AbstractPaymentGateway implements SupportsChec
             'cancel_url' => $cancelUrl,
         ];
 
-        if (isset($options['trial_period_days']) && $options['trial_period_days'] > 0) {
-            $params['subscription_data'] = [
-                'trial_period_days' => $options['trial_period_days'],
-            ];
+        // Checkout requires a trial_end at least 48 hours out.
+        $trial = $this->trialParams($customer, $priceId, $options, 48 * 3600);
+        if ($trial !== []) {
+            $params['subscription_data'] = $trial;
+        }
+
+        // 'if_required' lets a trial start without a card; 'always' collects one up front.
+        if (isset($options['payment_method_collection'])) {
+            if (!in_array($options['payment_method_collection'], ['always', 'if_required'], true)) {
+                throw new PaymentException('payment_method_collection must be always or if_required.');
+            }
+            $params['payment_method_collection'] = $options['payment_method_collection'];
         }
 
         if (isset($options['metadata'])) {
@@ -798,6 +808,27 @@ final class StripeGateway extends AbstractPaymentGateway implements SupportsChec
             subscriptionId: $session->subscription,
             raw: $session->toArray(),
         );
+    }
+
+    /**
+     * Validated trial params, after the host app's eligibility policy (if bound) agrees.
+     *
+     * @param  array<string, mixed>  $options
+     * @return array<string, mixed>
+     */
+    private function trialParams(Customer $customer, string $priceId, array $options, int $minLeadSeconds = 0): array
+    {
+        $trial = Trial::fromOptions($options, $minLeadSeconds);
+
+        if ($trial === null) {
+            return [];
+        }
+
+        if (app()->bound(TrialEligibility::class) && !app(TrialEligibility::class)->allowsTrial($customer, $priceId, $options)) {
+            throw new PaymentException('This customer is not eligible for a trial.', driver: $this->getName());
+        }
+
+        return $trial->toStripe();
     }
 
     /**
