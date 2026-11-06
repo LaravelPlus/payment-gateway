@@ -22,6 +22,7 @@ use LaravelPlus\PaymentGateway\DTOs\SubscriptionPlan;
 use LaravelPlus\PaymentGateway\DTOs\WebhookPayload;
 use LaravelPlus\PaymentGateway\Enums\PaymentStatus;
 use LaravelPlus\PaymentGateway\Enums\SubscriptionStatus;
+use LaravelPlus\PaymentGateway\Exceptions\InvalidWebhookPayloadException;
 use LaravelPlus\PaymentGateway\Exceptions\PaymentException;
 
 /**
@@ -788,12 +789,25 @@ final class PayPalGateway extends AbstractPaymentGateway implements SupportsCust
     {
         $payload = json_decode($request->getContent(), true);
 
+        if (!is_array($payload)
+            || !is_string($payload['id'] ?? null) || $payload['id'] === ''
+            || !is_string($payload['event_type'] ?? null) || $payload['event_type'] === ''
+            || !is_array($payload['resource'] ?? null)) {
+            throw InvalidWebhookPayloadException::because('PayPal event needs a string id and event_type and an object at resource');
+        }
+
+        try {
+            $createdAt = isset($payload['create_time']) ? new DateTimeImmutable((string) $payload['create_time']) : null;
+        } catch (Exception) {
+            throw InvalidWebhookPayloadException::because('PayPal event create_time is not a date');
+        }
+
         return new WebhookPayload(
             id: $payload['id'],
             type: $payload['event_type'],
             driver: $this->getName(),
-            data: $payload['resource'] ?? [],
-            createdAt: isset($payload['create_time']) ? new DateTimeImmutable($payload['create_time']) : null,
+            data: $payload['resource'],
+            createdAt: $createdAt,
             raw: $payload,
         );
     }
