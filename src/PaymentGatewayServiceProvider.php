@@ -6,6 +6,7 @@ namespace LaravelPlus\PaymentGateway;
 
 use App\Support\AdminNavigation;
 use Illuminate\Support\Facades\Event;
+use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\ServiceProvider;
 use LaravelPlus\PaymentGateway\Console\Commands\CleanupExpiredSubscriptionsCommand;
 use LaravelPlus\PaymentGateway\Console\Commands\InstallCommand;
@@ -59,11 +60,26 @@ final class PaymentGatewayServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        $this->registerAdminGate();
         $this->registerEventListeners();
         $this->registerPublishing();
         $this->registerResources();
         $this->registerCommands();
         $this->registerAdminNavigation();
+    }
+
+    /**
+     * Who may open the admin area. Apps redefine viewPaymentAdmin to change it;
+     * the default keeps spatie/laravel-permission setups working and refuses
+     * every user model without hasRole().
+     */
+    protected function registerAdminGate(): void
+    {
+        $this->app['router']->aliasMiddleware('payment-gateway.admin', \LaravelPlus\PaymentGateway\Http\Middleware\AuthorizePaymentAdmin::class);
+
+        if (!Gate::has('viewPaymentAdmin')) {
+            Gate::define('viewPaymentAdmin', fn ($user): bool => method_exists($user, 'hasRole') && (bool) $user->hasRole(['super-admin', 'admin']));
+        }
     }
 
     /**

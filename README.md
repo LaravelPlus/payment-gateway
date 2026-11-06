@@ -19,8 +19,18 @@ A flexible multi-provider payment gateway package for Laravel with support for S
 
 ## Requirements
 
-- PHP 8.2+
-- Laravel 11.x or 12.x
+- PHP 8.4+
+- Laravel 12.x or 13.x
+
+## Admin area
+
+The admin routes (`/admin/payments`, configurable through `payment-gateway.admin.prefix`) answer **404** to anyone the `viewPaymentAdmin` gate refuses, guests included, so the area isn't disclosed. By default the gate allows users whose `hasRole()` accepts `super-admin` or `admin`, which works with spatie/laravel-permission. A user model without `hasRole()` is refused. To change who gets in, redefine the gate in your `AppServiceProvider`:
+
+```php
+Gate::define('viewPaymentAdmin', fn ($user) => $user->is_staff);
+```
+
+Turn the area off with `payment-gateway.admin.enabled => false`.
 
 ## Installation
 
