@@ -309,7 +309,6 @@ final class CryptoGateway extends AbstractPaymentGateway implements SupportsWebh
             throw InvalidWebhookPayloadException::because('Crypto event must be a JSON object');
         }
 
-        // ponytail: id/type fallbacks left as-is; event-id handling is gh-3.
         $type = $payload['event']['type'] ?? $payload['type'] ?? 'unknown';
         $data = $payload['event']['data'] ?? $payload['data'] ?? [];
 
@@ -317,8 +316,15 @@ final class CryptoGateway extends AbstractPaymentGateway implements SupportsWebh
             throw InvalidWebhookPayloadException::because('Crypto event needs a string type and an object at data');
         }
 
+        // No id: derive one from the bytes, so a redelivery of the same event
+        // hits the replay check instead of getting a fresh random id each time.
+        $id = $payload['id'] ?? $payload['event']['id'] ?? 'sha256:'.hash('sha256', $request->getContent());
+        if (!is_string($id) && !is_int($id)) {
+            throw InvalidWebhookPayloadException::because('Crypto event id must be a string or integer');
+        }
+
         return new WebhookPayload(
-            id: $payload['id'] ?? $payload['event']['id'] ?? Str::random(16),
+            id: (string) $id,
             type: $type,
             driver: $this->getName(),
             data: $data,

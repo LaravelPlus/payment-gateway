@@ -174,6 +174,25 @@ class WebhookEnvelopeTest extends TestCase
         $gateway->parseWebhook($this->request(['id' => 'e1', 'event' => ['type' => ['x'], 'data' => 'oops']]));
     }
 
+    /** gh-3: an event without an id gets a stable one, so a redelivery is caught as a duplicate. */
+    #[Test]
+    public function crypto_events_without_an_id_get_a_stable_id_from_their_bytes(): void
+    {
+        $gateway = new CryptoGateway([]);
+        $event = ['event' => ['type' => 'charge:confirmed', 'data' => ['code' => 'C1']]];
+
+        $first = $gateway->parseWebhook($this->request($event))->id;
+
+        $this->assertSame($first, $gateway->parseWebhook($this->request($event))->id);
+        $this->assertSame('sha256:'.hash('sha256', json_encode($event)), $first);
+        $this->assertNotSame($first, $gateway->parseWebhook($this->request(['event' => ['type' => 'charge:confirmed', 'data' => ['code' => 'C2']]]))->id);
+        $this->assertSame('evt_9', $gateway->parseWebhook($this->request(['event' => ['id' => 'evt_9', 'type' => 'x', 'data' => []]]))->id);
+        $this->assertSame('42', $gateway->parseWebhook($this->request(['id' => 42, 'type' => 'x', 'data' => []]))->id);
+
+        $this->expectException(InvalidWebhookPayloadException::class);
+        $gateway->parseWebhook($this->request(['id' => ['nested'], 'type' => 'x', 'data' => []]));
+    }
+
     private function request(array $body): Request
     {
         return Request::create('/', 'POST', content: json_encode($body));
