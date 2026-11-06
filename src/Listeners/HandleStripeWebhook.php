@@ -465,6 +465,12 @@ final class HandleStripeWebhook
         $subscription = Subscription::firstOrNew(['provider_id' => $stripeSubscription['id'], 'driver' => 'stripe']);
         $before = $subscription->status;
 
+        // Canceled is final at Stripe, so a canceled row can only be overwritten by an
+        // older event that arrived late. Ignore it rather than give the access back.
+        if ($subscription->exists && $before === SubscriptionStatus::Canceled->value) {
+            return $subscription;
+        }
+
         // Required on create; never overwritten, because the app may have set it.
         if (! $subscription->exists) {
             $subscription->plan_id = $stripeSubscription['metadata']['plan']
