@@ -137,6 +137,9 @@ return [
     'webhooks' => [
         'path' => 'webhooks/payment',
         'middleware' => ['api'],
+        // Seconds an invoice webhook waits for another worker syncing the same invoice.
+        // Locks need a cache store shared by all workers (redis, database, memcached).
+        'lock_wait' => env('PAYMENT_WEBHOOK_LOCK_WAIT', 10),
     ],
 
     /*
