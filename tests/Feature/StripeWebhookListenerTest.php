@@ -138,4 +138,20 @@ class StripeWebhookListenerTest extends TestCase
 
         Mail::assertQueued(DisputeAlertMail::class, fn ($mail) => $mail->hasTo('owner@example.com'));
     }
+
+    public function test_an_early_fraud_warning_alerts_the_admin(): void
+    {
+        Mail::fake();
+        config()->set('payment-gateway.notifications.admin_email', 'owner@example.com');
+
+        $this->dispatch('radar.early_fraud_warning.created', ['id' => 'issfr_1', 'charge' => 'ch_1', 'fraud_type' => 'made_with_stolen_card', 'actionable' => true]);
+
+        Mail::assertQueued(DisputeAlertMail::class, function ($mail) {
+            $html = $mail->render();
+
+            return $mail->hasTo('owner@example.com')
+                && str_contains($html, 'Early Fraud Warning')
+                && str_contains($html, 'made_with_stolen_card');
+        });
+    }
 }

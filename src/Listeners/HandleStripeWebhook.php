@@ -68,7 +68,7 @@ final class HandleStripeWebhook
             'invoice.finalized' => $this->handleInvoiceFinalized($data),
 
             // Dispute events
-            'charge.dispute.created', 'charge.dispute.closed' => $this->handleDispute($data, $type),
+            'charge.dispute.created', 'charge.dispute.closed', 'radar.early_fraud_warning.created' => $this->handleDispute($data, $type),
 
             default => Log::debug('Unhandled Stripe webhook type', ['type' => $type]),
         };
@@ -329,7 +329,7 @@ final class HandleStripeWebhook
             'charge_id' => $dispute['charge'] ?? null,
             'amount' => $dispute['amount'] ?? null,
             'currency' => $dispute['currency'] ?? null,
-            'reason' => $dispute['reason'] ?? null,
+            'reason' => $dispute['reason'] ?? $dispute['fraud_type'] ?? null,
             'status' => $dispute['status'] ?? null,
         ]);
 
