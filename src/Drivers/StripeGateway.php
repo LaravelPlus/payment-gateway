@@ -25,6 +25,7 @@ use LaravelPlus\PaymentGateway\DTOs\Trial;
 use LaravelPlus\PaymentGateway\DTOs\WebhookPayload;
 use LaravelPlus\PaymentGateway\Enums\PaymentStatus;
 use LaravelPlus\PaymentGateway\Enums\SubscriptionStatus;
+use LaravelPlus\PaymentGateway\Exceptions\InvalidWebhookPayloadException;
 use LaravelPlus\PaymentGateway\Exceptions\PaymentException;
 
 /**
@@ -824,11 +825,19 @@ final class StripeGateway extends AbstractPaymentGateway implements SupportsChec
     {
         $payload = json_decode($request->getContent(), true);
 
+        if (!is_array($payload)
+            || !is_string($payload['id'] ?? null) || $payload['id'] === ''
+            || !is_string($payload['type'] ?? null) || $payload['type'] === ''
+            || !is_int($payload['created'] ?? null)
+            || !is_array($payload['data']['object'] ?? null)) {
+            throw InvalidWebhookPayloadException::because('Stripe event needs a string id and type, an integer created and an object at data.object');
+        }
+
         return new WebhookPayload(
             id: $payload['id'],
             type: $payload['type'],
             driver: $this->getName(),
-            data: $payload['data']['object'] ?? [],
+            data: $payload['data']['object'],
             createdAt: DateTimeImmutable::createFromFormat('U', (string) $payload['created']),
             raw: $payload,
         );
