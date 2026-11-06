@@ -59,6 +59,7 @@ final class HandleStripeWebhook
             'charge.succeeded' => $this->handleChargeSucceeded($data),
             'charge.failed' => $this->handleChargeFailed($data),
             'charge.refunded' => $this->handleChargeRefunded($data),
+            'charge.refund.updated', 'refund.created', 'refund.updated', 'refund.failed' => $this->handleRefundUpdated($data),
 
             // Subscription events
             'customer.subscription.created' => $this->handleSubscriptionCreated($data),
@@ -228,30 +229,53 @@ final class HandleStripeWebhook
                 'provider_response' => $charge,
             ]);
 
-        // Create refund records for each refund
         foreach ($charge['refunds']['data'] ?? $this->fetchRefunds($charge['id']) as $stripeRefund) {
-            $refund = Refund::firstOrCreate(
-                ['provider_id' => $stripeRefund['id'], 'driver' => 'stripe'],
-                [
+            $this->syncRefund($transaction, $stripeRefund);
+        }
+    }
+
+    /**
+     * A refund's own lifecycle: pending, then succeeded, failed or canceled.
+     */
+    private function handleRefundUpdated(array $stripeRefund): void
+    {
+        $transaction = $this->findPaymentTransaction([$stripeRefund['payment_intent'] ?? null, $stripeRefund['charge'] ?? null]);
+
+        if (!$transaction) {
+            Log::warning('Stripe refund for an unknown payment', ['refund' => $stripeRefund['id'] ?? null, 'charge' => $stripeRefund['charge'] ?? null]);
+
+            return;
+        }
+
+        $this->syncRefund($transaction, $stripeRefund);
+    }
+
+    /**
+     * Upsert one refund by its Stripe id; the Refund model recomputes the payment's
+     * totals from settled refunds. RefundProcessed fires once, when it settles.
+     */
+    private function syncRefund(Transaction $transaction, array $stripeRefund): void
+    {
+        Cache::lock('payment-gateway:stripe-refund:'.$stripeRefund['id'], 30)
+            ->block((int) config('payment-gateway.webhooks.lock_wait', 10), function () use ($transaction, $stripeRefund): void {
+                $refund = Refund::firstOrNew(['provider_id' => $stripeRefund['id'], 'driver' => 'stripe']);
+                $wasSettled = $refund->exists && $refund->isSettled();
+
+                $refund->fill([
                     'transaction_id' => $transaction->id,
                     'user_id' => $transaction->user_id,
                     'amount' => $stripeRefund['amount'],
-                    'currency' => mb_strtoupper($stripeRefund['currency']),
+                    'currency' => mb_strtoupper((string) $stripeRefund['currency']),
                     'status' => $stripeRefund['status'],
-                    'reason' => $stripeRefund['reason'],
+                    'reason' => $stripeRefund['reason'] ?? $refund->reason,
+                    'failure_reason' => $stripeRefund['failure_reason'] ?? null,
                     'provider_response' => $stripeRefund,
-                ]
-            );
+                ])->save();
 
-            if ($refund->wasRecentlyCreated) {
-                event(new RefundProcessed($refund->toDto()));
-            }
-        }
-
-        // Update transaction status if fully refunded
-        if ($charge['refunded']) {
-            $transaction->update(['status' => PaymentStatus::Refunded->value]);
-        }
+                if (!$wasSettled && $refund->isSettled()) {
+                    event(new RefundProcessed($refund->toDto()));
+                }
+            });
     }
 
     /**
