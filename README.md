@@ -17,6 +17,8 @@ A flexible multi-provider payment gateway package for Laravel with support for S
 - **Factories**: Full factory support for testing
 - **Artisan Commands**: Install, sync plans, trial reminders, cleanup
 
+Which driver supports what, and which behaviour is covered by tests: [docs/capabilities.md](docs/capabilities.md). Releases follow [docs/release-checklist.md](docs/release-checklist.md).
+
 ## Requirements
 
 - PHP 8.2+
