@@ -762,19 +762,36 @@ final class PayPalGateway extends AbstractPaymentGateway implements SupportsCust
             return false;
         }
 
+        $fields = [
+            'auth_algo' => $request->header('PAYPAL-AUTH-ALGO'),
+            'cert_url' => $request->header('PAYPAL-CERT-URL'),
+            'transmission_id' => $request->header('PAYPAL-TRANSMISSION-ID'),
+            'transmission_sig' => $request->header('PAYPAL-TRANSMISSION-SIG'),
+            'transmission_time' => $request->header('PAYPAL-TRANSMISSION-TIME'),
+            'webhook_id' => $webhookId,
+        ];
+
+        // Unsigned: nothing to verify, so don't spend two PayPal round-trips on it.
+        if (in_array(null, $fields, true) || in_array('', $fields, true)) {
+            return false;
+        }
+
+        $raw = $request->getContent();
+        if (!json_decode($raw) instanceof \stdClass) {
+            return false;
+        }
+
+        // PayPal signs its original bytes. Decoding and re-encoding the event turns
+        // "10.10" into 10.1, "\/" into "/" and {} into [], and real events then fail,
+        // so the raw body is spliced in as webhook_event untouched.
+        $body = substr((string) json_encode($fields, JSON_UNESCAPED_SLASHES), 0, -1).',"webhook_event":'.$raw.'}';
+
         try {
             $token = $this->getAccessToken();
 
             $response = \Illuminate\Support\Facades\Http::withToken($token)
-                ->post("{$this->getBaseUrl()}/v1/notifications/verify-webhook-signature", [
-                    'auth_algo' => $request->header('PAYPAL-AUTH-ALGO'),
-                    'cert_url' => $request->header('PAYPAL-CERT-URL'),
-                    'transmission_id' => $request->header('PAYPAL-TRANSMISSION-ID'),
-                    'transmission_sig' => $request->header('PAYPAL-TRANSMISSION-SIG'),
-                    'transmission_time' => $request->header('PAYPAL-TRANSMISSION-TIME'),
-                    'webhook_id' => $webhookId,
-                    'webhook_event' => json_decode($request->getContent(), true),
-                ]);
+                ->withBody($body, 'application/json')
+                ->post("{$this->getBaseUrl()}/v1/notifications/verify-webhook-signature");
 
             return $response->json('verification_status') === 'SUCCESS';
         } catch (Exception) {
