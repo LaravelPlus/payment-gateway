@@ -128,6 +128,20 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Checkout
+    |--------------------------------------------------------------------------
+    |
+    | allowed_prices: provider Price IDs that checkout and createSubscription()
+    | accept, e.g. ['price_pro_monthly', 'price_credits_100']. Set it when any
+    | Price ID comes from a request; null accepts any Price.
+    |
+    */
+    'checkout' => [
+        'allowed_prices' => null,
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
     | Webhooks
     |--------------------------------------------------------------------------
     |

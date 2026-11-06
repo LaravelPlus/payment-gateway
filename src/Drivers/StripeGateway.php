@@ -625,6 +625,7 @@ final class StripeGateway extends AbstractPaymentGateway implements SupportsChec
         }
 
         $lines = [['price' => $priceId, 'quantity' => $quantity]];
+        $allowed = config('payment-gateway.checkout.allowed_prices');
         $extra = $options['items'] ?? [];
         if (!is_array($extra) || !array_is_list($extra)) {
             $this->invalid('items must be a list of [price_id, quantity].');
@@ -640,6 +641,15 @@ final class StripeGateway extends AbstractPaymentGateway implements SupportsChec
                 $this->invalid("Price {$item['price_id']} appears more than once.");
             }
             $lines[] = ['price' => $item['price_id'], 'quantity' => $item['quantity']];
+        }
+
+        // An app that lists its catalog never lets a browser-supplied Price through.
+        if (is_array($allowed)) {
+            foreach ($lines as $line) {
+                if (!in_array($line['price'], $allowed, true)) {
+                    $this->invalid("Price {$line['price']} is not in the allowed catalog.");
+                }
+            }
         }
 
         return $lines;
@@ -895,16 +905,35 @@ final class StripeGateway extends AbstractPaymentGateway implements SupportsChec
         string $cancelUrl,
         array $options = []
     ): CheckoutSession {
+        // 'subscription' (default) for recurring Prices; 'payment' for one-time
+        // purchases such as products or credit packs.
+        $mode = $options['mode'] ?? 'subscription';
+        if (!in_array($mode, ['subscription', 'payment'], true)) {
+            $this->invalid('mode must be subscription or payment.');
+        }
+
         $params = [
-            'mode' => 'subscription',
+            'mode' => $mode,
             'customer' => $customer->id,
             'line_items' => $this->lineItems($priceId, $options),
             'success_url' => $successUrl,
             'cancel_url' => $cancelUrl,
         ];
 
+        if ($mode === 'payment') {
+            if (isset($options['payment_method_collection']) || Trial::fromOptions($options) !== null) {
+                $this->invalid('Trials and payment_method_collection only apply to subscription checkout.');
+            }
+
+            // Fulfil from the payment_intent.succeeded webhook, never the redirect: it sees
+            // the PaymentIntent, so the order metadata has to travel on it.
+            if (isset($options['metadata'])) {
+                $params['payment_intent_data'] = ['metadata' => $options['metadata']];
+            }
+        }
+
         // Checkout requires a trial_end at least 48 hours out.
-        $trial = $this->trialParams($customer, $priceId, $options, 48 * 3600);
+        $trial = $mode === 'subscription' ? $this->trialParams($customer, $priceId, $options, 48 * 3600) : [];
         if ($trial !== []) {
             $params['subscription_data'] = $trial;
         }
