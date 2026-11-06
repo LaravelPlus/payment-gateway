@@ -36,4 +36,4 @@ All tests use fake clients and synthetic IDs. None uses real credentials or make
 | Currency | zero-, two- and three-decimal minor units, rounding | `MoneyTest`, `AbstractPaymentGatewayTest` |
 | Schema | every factory and state inserts against the shipped migrations | `FactoriesTest` |
 
-The CI matrix (`.github/workflows/tests.yml`) runs on SQLite. PostgreSQL isn't in CI yet. The migrations use only portable column types, but run the suite against PostgreSQL before a release that adds migrations (see [release checklist](release-checklist.md)).
+CI (`.github/workflows/tests.yml`) runs the suite on SQLite across PHP 8.4/8.5 × Laravel 12/13, and once on PostgreSQL 17.
