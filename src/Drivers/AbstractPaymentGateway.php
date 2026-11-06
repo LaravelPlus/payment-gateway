@@ -88,17 +88,17 @@ abstract class AbstractPaymentGateway implements PaymentGatewayContract
     }
 
     /**
-     * Convert amount to cents if needed.
+     * Convert an amount to minor units if needed: an int is taken as already
+     * minor, a float as a decimal in $currency (default: the gateway's), so
+     * JPY 1000.0 stays 1000 and KWD 10.5 becomes 10500.
      */
-    protected function ensureCents(int|float $amount): int
+    protected function ensureCents(int|float $amount, ?string $currency = null): int
     {
-        // If it's already an integer, assume it's in cents
         if (is_int($amount)) {
             return $amount;
         }
 
-        // If it's a float, convert to cents
-        return (int) round($amount * 100);
+        return \LaravelPlus\PaymentGateway\Support\Money::toMinor($amount, $currency ?? $this->currency);
     }
 
     /**

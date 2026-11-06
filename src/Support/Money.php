@@ -15,9 +15,18 @@ final class Money
         'BIF', 'CLP', 'DJF', 'GNF', 'JPY', 'KMF', 'KRW', 'MGA', 'PYG', 'RWF', 'UGX', 'VND', 'VUV', 'XAF', 'XOF', 'XPF',
     ];
 
+    /** @var list<string> Stripe and PayPal bill these in thousandths. */
+    private const THREE_DECIMAL = ['BHD', 'JOD', 'KWD', 'OMR', 'TND'];
+
     public static function decimals(string $currency): int
     {
-        return in_array(mb_strtoupper($currency), self::ZERO_DECIMAL, true) ? 0 : 2;
+        $currency = mb_strtoupper($currency);
+
+        return match (true) {
+            in_array($currency, self::ZERO_DECIMAL, true) => 0,
+            in_array($currency, self::THREE_DECIMAL, true) => 3,
+            default => 2,
+        };
     }
 
     /**
