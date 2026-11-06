@@ -44,7 +44,8 @@ jobs:
       postgres:
         image: postgres:17
         env:
-          POSTGRES_PASSWORD: postgres
+          # Throwaway CI container: trust auth, so no password exists to leak or to trip secret scanners.
+          POSTGRES_HOST_AUTH_METHOD: trust
           POSTGRES_DB: testing
         ports: ['5432:5432']
         options: >-
@@ -55,7 +56,6 @@ jobs:
       DB_PORT: 5432
       DB_DATABASE: testing
       DB_USERNAME: postgres
-      DB_PASSWORD: postgres
     steps:
       - uses: actions/checkout@v4
 
