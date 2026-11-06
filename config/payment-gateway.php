@@ -276,8 +276,10 @@ return [
         // Route prefix for admin panel
         'prefix' => env('PAYMENT_ADMIN_PREFIX', 'admin/payments'),
 
-        // Middleware to apply to admin routes
-        'middleware' => ['web', 'auth', 'role:super-admin,admin'],
+        // Middleware for admin routes. payment-gateway.admin answers 404 unless the
+        // viewPaymentAdmin gate allows the user (default: hasRole super-admin|admin,
+        // as with spatie/laravel-permission). Redefine the gate to change it.
+        'middleware' => ['web', 'payment-gateway.admin'],
 
         // Dashboard settings
         'dashboard' => [
