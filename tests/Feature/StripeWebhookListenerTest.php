@@ -72,6 +72,19 @@ class StripeWebhookListenerTest extends TestCase
         return $user;
     }
 
+    public function test_a_customer_stored_on_the_user_is_found(): void
+    {
+        config()->set('auth.providers.users.model', User::class);
+        $user = User::forceCreate(['name' => 'B', 'email' => 'b@example.com', 'password' => 'x', 'stripe_id' => 'cus_2']);
+
+        $this->dispatch('customer.subscription.created', [
+            'id' => 'sub_2', 'customer' => 'cus_2', 'status' => 'active', 'currency' => 'eur',
+            'items' => ['data' => [['price' => ['id' => 'price_2', 'unit_amount' => 2900, 'recurring' => ['interval' => 'month', 'interval_count' => 1]]]]],
+        ]);
+
+        $this->assertSame($user->id, Subscription::where('provider_id', 'sub_2')->value('user_id'));
+    }
+
     public function test_refunds_missing_from_the_event_are_fetched_from_stripe(): void
     {
         Event::fake([RefundProcessed::class]);

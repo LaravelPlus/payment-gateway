@@ -430,7 +430,9 @@ final class HandleStripeWebhook
         $paymentCustomer = \LaravelPlus\PaymentGateway\Models\PaymentCustomer::where('stripe_id', $customerId)
             ->first();
 
-        return $paymentCustomer?->user;
+        // Billable::createAsPaymentCustomer() stores the ID on users.stripe_id, not in payment_customers.
+        return $paymentCustomer?->user
+            ?? config('auth.providers.users.model')::where('stripe_id', $customerId)->first();
     }
 
     /**
