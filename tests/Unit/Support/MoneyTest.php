@@ -34,4 +34,11 @@ class MoneyTest extends TestCase
         $this->assertSame(1000.0, Money::toDecimal(1000, 'jpy'));
         $this->assertSame('10.50', Money::toDecimalString(1050, 'USD'));
     }
+
+    public function test_three_decimal_currencies_use_thousandths(): void
+    {
+        $this->assertSame(10500, Money::toMinor('10.5', 'KWD'));
+        $this->assertSame('10.500', Money::toDecimalString(10500, 'kwd'));
+        $this->assertSame(3, Money::decimals('BHD'));
+    }
 }

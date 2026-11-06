@@ -159,6 +159,29 @@ final class Transaction extends Model
     /**
      * Get refundable amount (in cents).
      */
+    /**
+     * amount_refunded = settled refunds, capped at the payment; the status follows
+     * (refunded / partially_refunded, or back to succeeded when a refund fails).
+     * Idempotent, so duplicate or reordered refund events converge.
+     */
+    public function recalculateRefunds(): void
+    {
+        $settled = (int) $this->refunds()->whereIn('status', Refund::SETTLED)->sum('amount');
+        $refunded = max(0, min($settled, (int) $this->amount));
+
+        $refundStates = [PaymentStatus::Succeeded->value, PaymentStatus::Refunded->value, PaymentStatus::PartiallyRefunded->value];
+        $status = $this->status;
+        if (in_array($status, $refundStates, true)) {
+            $status = match (true) {
+                $refunded >= (int) $this->amount && $refunded > 0 => PaymentStatus::Refunded->value,
+                $refunded > 0 => PaymentStatus::PartiallyRefunded->value,
+                default => PaymentStatus::Succeeded->value,
+            };
+        }
+
+        $this->forceFill(['amount_refunded' => $refunded, 'status' => $status])->save();
+    }
+
     public function getRefundableAmount(): int
     {
         return $this->amount - $this->amount_refunded;

@@ -62,17 +62,23 @@ final class Refund extends Model
             }
         });
 
-        self::created(function (self $model): void {
-            // Update the transaction's refunded amount
-            $model->transaction->increment('amount_refunded', $model->amount);
-
-            // Update transaction status if fully refunded
-            if ($model->transaction->amount_refunded >= $model->transaction->amount) {
-                $model->transaction->update(['status' => 'refunded']);
-            } elseif ($model->transaction->amount_refunded > 0) {
-                $model->transaction->update(['status' => 'partially_refunded']);
+        // Totals are recomputed from the refund rows, never incremented, so a
+        // pending/failed refund or a repeated event can't skew them.
+        self::saved(function (self $model): void {
+            if ($model->wasRecentlyCreated || $model->wasChanged(['status', 'amount'])) {
+                $model->transaction?->recalculateRefunds();
             }
         });
+    }
+
+    /**
+     * Statuses whose money has actually gone back (Stripe "succeeded", PayPal "completed").
+     */
+    public const SETTLED = ['succeeded', 'completed'];
+
+    public function isSettled(): bool
+    {
+        return in_array($this->status, self::SETTLED, true);
     }
 
     /**
