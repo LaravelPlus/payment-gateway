@@ -162,6 +162,8 @@ final class HandleStripeWebhook
                     'currency' => mb_strtoupper((string) ($object['currency'] ?? '')),
                     'status' => PaymentStatus::Pending->value,
                     'description' => $object['description'] ?? null,
+                    // Checkout copies the app's order reference onto the PaymentIntent (gh-31).
+                    'metadata' => $object['metadata'] ?? null,
                     'provider_response' => $object,
                 ]);
             });

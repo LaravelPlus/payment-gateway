@@ -190,4 +190,13 @@ class StripePaymentIdentityTest extends TestCase
         $this->assertSame(1, Transaction::count());
         $this->assertSame('refunded', $tx->refresh()->status);
     }
+
+    public function test_a_checkout_payment_keeps_the_order_metadata_on_its_transaction(): void
+    {
+        $this->customer();
+
+        $this->dispatch('payment_intent.succeeded', ['metadata' => ['order' => 'o_1']] + self::INTENT);
+
+        $this->assertSame(['order' => 'o_1'], Transaction::sole()->metadata);
+    }
 }
