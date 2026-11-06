@@ -1,5 +1,10 @@
 # Payment Gateway for Laravel
 
+[![Latest Version on Packagist](https://img.shields.io/packagist/v/laravelplus/payment-gateway.svg)](https://packagist.org/packages/laravelplus/payment-gateway)
+[![Total Downloads](https://img.shields.io/packagist/dt/laravelplus/payment-gateway.svg)](https://packagist.org/packages/laravelplus/payment-gateway)
+[![Tests](https://github.com/LaravelPlus/payment-gateway/actions/workflows/tests.yml/badge.svg)](https://github.com/LaravelPlus/payment-gateway/actions/workflows/tests.yml)
+[![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+
 A flexible multi-provider payment gateway package for Laravel with support for Stripe, PayPal, Crypto, Bank Transfer, and Cash on Delivery.
 
 ## Features
