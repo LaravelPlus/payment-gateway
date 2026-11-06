@@ -167,6 +167,13 @@ abstract class AbstractPaymentGateway implements PaymentGatewayContract
             'previous' => $previous?->getMessage(),
         ]);
 
-        throw new PaymentException($message, $code, $previous);
+        // Named: positionally, $code and $previous landed in transactionId and
+        // driver, so every provider API error surfaced as a TypeError.
+        throw new PaymentException(
+            message: $message,
+            driver: $this->getName(),
+            context: $code === null ? [] : ['code' => $code],
+            previous: $previous,
+        );
     }
 }

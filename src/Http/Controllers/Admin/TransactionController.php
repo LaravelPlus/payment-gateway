@@ -130,17 +130,22 @@ final class TransactionController extends Controller
     public function refund(RefundTransactionRequest $request, Transaction $transaction): RedirectResponse
     {
 
-        if (! $transaction->isSuccessful()) {
+        // A partly refunded payment can be refunded further, up to what is left.
+        if (! $transaction->isSuccessful() && ! $transaction->isPartiallyRefunded()) {
             return back()->with('error', 'Cannot refund a transaction that is not successful.');
         }
 
-        if ($transaction->getRefundableAmount() <= 0) {
+        $refundable = $transaction->getRefundableAmount();
+        if ($refundable <= 0) {
             return back()->with('error', 'This transaction has already been fully refunded.');
         }
 
+        $amount = $request->integer('amount') ?: $refundable;
+        if ($amount < 1 || $amount > $refundable) {
+            return back()->with('error', "The refund amount exceeds the refundable {$refundable}.");
+        }
+
         try {
-            $refundable = $transaction->getRefundableAmount();
-            $amount = $request->integer('amount') ?: $refundable;
             $reason = $request->input('reason');
             $gateway = Payment::driver($transaction->driver);
 
