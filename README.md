@@ -310,6 +310,19 @@ Webhook routes are automatically registered at:
 - `POST /webhooks/payment/paypal`
 - `POST /webhooks/payment/crypto`
 
+Responses tell the provider whether to retry:
+
+| Status | Meaning | Provider retries? |
+|---|---|---|
+| 200 | Handled, or a duplicate of an event already handled | No |
+| 400 | Not a JSON object, or signed but not a well-formed event for that provider | No |
+| 401 | Signature missing or invalid | Provider-dependent |
+| 413 | Body over 1 MB (measured on the real body, not `Content-Length`) | No |
+| 415 | Not `application/json` | No |
+| 500 | Handler or listener threw; the event claim is rolled back so the retry is processed | Yes |
+
+Also cap the body in your web server (`client_max_body_size`, `post_max_size`); PHP has already read it by the time the controller runs.
+
 Listen to events in your `EventServiceProvider`:
 
 ```php

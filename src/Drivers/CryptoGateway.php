@@ -14,6 +14,7 @@ use LaravelPlus\PaymentGateway\DTOs\PaymentIntent;
 use LaravelPlus\PaymentGateway\DTOs\PaymentResult;
 use LaravelPlus\PaymentGateway\DTOs\WebhookPayload;
 use LaravelPlus\PaymentGateway\Enums\PaymentStatus;
+use LaravelPlus\PaymentGateway\Exceptions\InvalidWebhookPayloadException;
 use LaravelPlus\PaymentGateway\Exceptions\PaymentException;
 
 /**
@@ -304,11 +305,23 @@ final class CryptoGateway extends AbstractPaymentGateway implements SupportsWebh
     {
         $payload = json_decode($request->getContent(), true);
 
+        if (!is_array($payload)) {
+            throw InvalidWebhookPayloadException::because('Crypto event must be a JSON object');
+        }
+
+        // ponytail: id/type fallbacks left as-is; event-id handling is gh-3.
+        $type = $payload['event']['type'] ?? $payload['type'] ?? 'unknown';
+        $data = $payload['event']['data'] ?? $payload['data'] ?? [];
+
+        if (!is_string($type) || !is_array($data)) {
+            throw InvalidWebhookPayloadException::because('Crypto event needs a string type and an object at data');
+        }
+
         return new WebhookPayload(
             id: $payload['id'] ?? $payload['event']['id'] ?? Str::random(16),
-            type: $payload['event']['type'] ?? $payload['type'] ?? 'unknown',
+            type: $type,
             driver: $this->getName(),
-            data: $payload['event']['data'] ?? $payload['data'] ?? [],
+            data: $data,
             raw: $payload,
         );
     }
