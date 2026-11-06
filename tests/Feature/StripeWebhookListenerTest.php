@@ -19,6 +19,7 @@ use LaravelPlus\PaymentGateway\Mail\DisputeAlertMail;
 use LaravelPlus\PaymentGateway\Mail\InvoicePaymentFailedMail;
 use LaravelPlus\PaymentGateway\Models\Invoice;
 use LaravelPlus\PaymentGateway\Models\PaymentCustomer;
+use LaravelPlus\PaymentGateway\Models\Plan;
 use LaravelPlus\PaymentGateway\Models\Subscription;
 use LaravelPlus\PaymentGateway\Models\Transaction;
 use LaravelPlus\PaymentGateway\Tests\TestCase;
@@ -144,6 +145,89 @@ class StripeWebhookListenerTest extends TestCase
         $stored = Subscription::where('provider_id', 'sub_9')->firstOrFail();
         $this->assertSame('business', $stored->plan_id);
         $this->assertSame(1800000000, $stored->current_period_end->getTimestamp());
+    }
+
+    /** gh-16: one Stripe subscription item, in the shape customer.subscription.* sends. */
+    private static function item(string $price, int $quantity, int $amount = 900): array
+    {
+        return ['id' => 'si_'.$price, 'quantity' => $quantity, 'current_period_end' => 1800000000,
+            'price' => ['id' => $price, 'unit_amount' => $amount, 'recurring' => ['interval' => 'month', 'interval_count' => 1]]];
+    }
+
+    private static function subscriptionObject(array $items, array $extra = []): array
+    {
+        return ['id' => 'sub_16', 'object' => 'subscription', 'customer' => 'cus_1', 'status' => 'active', 'currency' => 'eur',
+            'metadata' => [], 'items' => ['data' => $items]] + $extra;
+    }
+
+    private function plan(string $slug, string $price): Plan
+    {
+        return Plan::create(['slug' => $slug, 'name' => ucfirst($slug), 'amount' => 2000, 'currency' => 'EUR', 'interval' => 'month', 'stripe_price_id' => $price]);
+    }
+
+    public function test_a_webhook_subscription_is_linked_to_the_plan_that_owns_its_price(): void
+    {
+        $this->customer();
+        $plan = $this->plan('pro', 'price_pro');
+
+        $this->dispatch('customer.subscription.created', self::subscriptionObject([self::item('price_pro', 1, 2000)]));
+
+        $stored = Subscription::where('provider_id', 'sub_16')->firstOrFail();
+        $this->assertSame('pro', $stored->plan_id);
+        $this->assertSame($plan->id, $stored->payment_plan_id);
+    }
+
+    public function test_the_base_item_is_the_one_with_a_plan_even_when_a_seat_item_comes_first(): void
+    {
+        $this->customer();
+        $plan = $this->plan('team', 'price_team');
+
+        $this->dispatch('customer.subscription.created', self::subscriptionObject([
+            self::item('price_seat', 4, 500),
+            self::item('price_team', 1, 2000),
+        ]));
+
+        $stored = Subscription::where('provider_id', 'sub_16')->firstOrFail();
+        $this->assertSame(['team', $plan->id, 'price_team', 2000, 1], [$stored->plan_id, $stored->payment_plan_id, $stored->provider_plan_id, $stored->amount, $stored->quantity]);
+        $this->assertCount(2, $stored->provider_response['items']['data']);
+    }
+
+    public function test_without_a_plan_row_it_falls_back_to_the_price_and_reads_the_item_quantity(): void
+    {
+        $this->customer();
+
+        // No top-level quantity: Stripe omits it once items carry their own.
+        $this->dispatch('customer.subscription.created', self::subscriptionObject([self::item('price_solo', 3)]));
+
+        $stored = Subscription::where('provider_id', 'sub_16')->firstOrFail();
+        $this->assertSame(['price_solo', null, 3], [$stored->plan_id, $stored->payment_plan_id, $stored->quantity]);
+    }
+
+    public function test_a_price_change_relinks_the_plan_but_keeps_the_app_owned_plan_id(): void
+    {
+        $this->customer();
+        $this->plan('pro', 'price_pro');
+        $annual = $this->plan('pro-annual', 'price_pro_annual');
+
+        $this->dispatch('customer.subscription.created', self::subscriptionObject([self::item('price_pro', 1)]));
+        $this->dispatch('customer.subscription.updated', self::subscriptionObject([self::item('price_pro_annual', 1)]));
+
+        $stored = Subscription::where('provider_id', 'sub_16')->firstOrFail();
+        $this->assertSame(['pro', $annual->id, 'price_pro_annual'], [$stored->plan_id, $stored->payment_plan_id, $stored->provider_plan_id]);
+    }
+
+    public function test_a_subscription_without_items_fails_loudly_instead_of_storing_unknown(): void
+    {
+        $this->customer();
+
+        try {
+            $this->dispatch('customer.subscription.created', self::subscriptionObject([]));
+            $this->fail('stored a subscription with no items');
+        } catch (\UnexpectedValueException $e) {
+            $this->assertStringContainsString('sub_16', $e->getMessage());
+        }
+
+        $this->assertSame(0, Subscription::where('provider_id', 'sub_16')->count());
     }
 
     public function test_a_dispute_alerts_the_admin(): void
