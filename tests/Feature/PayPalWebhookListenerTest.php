@@ -235,6 +235,8 @@ class PayPalWebhookListenerTest extends TestCase
     public function test_capture_refunded_reads_the_capture_from_the_refund_resource(): void
     {
         $tx = $this->orderTransaction($this->customer());
+        // A refund follows a paid capture; refund bookkeeping only moves paid payments (gh-25).
+        $tx->update(['status' => 'succeeded']);
 
         // The resource of PAYMENT.CAPTURE.REFUNDED is the refund; its "up" link is the capture.
         $this->dispatch('PAYMENT.CAPTURE.REFUNDED', [
